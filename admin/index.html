@@ -60,13 +60,17 @@
 
 <!-- ================= MAIN APP SHELL ================= -->
 <div id="appShell" class="hidden max-w-3xl mx-auto px-4 py-8">
-  <div class="flex items-center justify-between mb-6">
-    <div class="flex items-center gap-1 bg-navy-900/60 border border-navy-700 rounded-xl p-1">
-      <button id="tabQueue" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold">คิวงานรอตรวจ</button>
-      <button id="tabMissions" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold">จัดการภารกิจ</button>
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1 bg-navy-900/60 border border-navy-700 rounded-xl p-1">
+        <button id="tabQueue" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold">คิวงานรอตรวจ</button>
+        <button id="tabMissions" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold">จัดการภารกิจ</button>
+      </div>
+      <span id="scopeBadge" class="hidden px-2.5 py-1 rounded-full bg-gold-500 text-navy-950 text-xs font-extrabold"></span>
     </div>
     <button id="logoutBtn" class="text-xs text-navy-100/50 hover:text-white underline">ออกจากระบบ</button>
   </div>
+  <p class="text-navy-100/30 text-[11px] mb-4" id="scopeHint"></p>
 
   <!-- ===== QUEUE PANEL ===== -->
   <div id="queueView">
@@ -152,7 +156,12 @@ let rejectTargetId = null;
 
 function saveSession(token) { localStorage.setItem('a_family_admin_token', token); }
 function loadSession() { return localStorage.getItem('a_family_admin_token'); }
-function clearSession() { localStorage.removeItem('a_family_admin_token'); }
+function clearSession() {
+  localStorage.removeItem('a_family_admin_token');
+  localStorage.removeItem('a_family_admin_scope');
+}
+function saveScope(scope) { localStorage.setItem('a_family_admin_scope', scope); }
+function loadScope() { return localStorage.getItem('a_family_admin_scope'); }
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -184,7 +193,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     });
     if (!res.success) throw new Error(res.error || 'เข้าสู่ระบบไม่สำเร็จ');
     saveSession(res.token);
+    saveScope(res.scope);
     state.token = res.token;
+    state.scope = res.scope;
+    applyScopeUI();
     await switchTab('queue');
   } catch (err) {
     errEl.textContent = err.message;
@@ -204,6 +216,26 @@ document.getElementById('tabMissions').addEventListener('click', () => switchTab
 
 let currentTab = 'queue';
 
+function applyScopeUI() {
+  const scope = state.scope;
+  const badge = document.getElementById('scopeBadge');
+  const hint = document.getElementById('scopeHint');
+  const missionsTabBtn = document.getElementById('tabMissions');
+
+  if (scope === 'ALL') {
+    badge.classList.add('hidden');
+    hint.textContent = '';
+    missionsTabBtn.classList.remove('hidden');
+  } else {
+    badge.textContent = scope;
+    badge.classList.remove('hidden');
+    hint.textContent = `คุณเห็นเฉพาะงานของสาย ${scope} เท่านั้น`;
+    missionsTabBtn.classList.add('hidden');
+    // ถ้าแอดมินสายย่อยพยายามอยู่ในแท็บภารกิจ (เช่นค้างจากตอน ALL) ให้ดีดกลับมาคิวงาน
+    if (currentTab === 'missions') currentTab = 'queue';
+  }
+}
+
 function applyTabStyles() {
   const isQueue = currentTab === 'queue';
   document.getElementById('tabQueue').className =
@@ -215,9 +247,11 @@ function applyTabStyles() {
 }
 
 async function switchTab(tab) {
+  if (tab === 'missions' && state.scope !== 'ALL') return; // กันการสลับแท็บที่ไม่มีสิทธิ์
   currentTab = tab;
   document.getElementById('loginView').classList.add('hidden');
   document.getElementById('appShell').classList.remove('hidden');
+  applyScopeUI();
   applyTabStyles();
   if (tab === 'queue') {
     await loadQueue();
@@ -238,6 +272,11 @@ async function loadQueue() {
     return;
   }
   renderQueue(res.queue);
+  if (res.scope && res.scope !== state.scope) {
+    state.scope = res.scope;
+    saveScope(res.scope);
+    applyScopeUI();
+  }
 }
 
 function renderQueue(queue) {
@@ -426,9 +465,12 @@ async function deleteMission(lineCode, step) {
   const token = loadSession();
   if (token) {
     state.token = token;
+    state.scope = loadScope() || 'ALL';
     await switchTab('queue');
   }
 })();
 </script>
+<p class="text-center text-navy-100/20 text-[11px] py-6">Create by ฝ่าย IT KME</p>
+
 </body>
 </html>
