@@ -1,6 +1,6 @@
 // ตั้งค่า URL ของ Google Apps Script Web App (ลงท้ายด้วย /exec)
 // นำ URL ที่ได้ตอน Deploy > New deployment > Web app มาใส่ตรงนี้
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZGGTCIMLEOiSrXu-DCR3gvqisvvIouTUbe6_QFYG2sZg2m87OomXUC5WW03GlEPX_/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwkvCnFsxD7451hcSZmxMR0DwTg5M5tPBmB4rt6Jck04VPpweJrdXpFnfnTyM5yNgnb/exec";
 
 /**
  * เรียก API ฝั่ง Google Apps Script
