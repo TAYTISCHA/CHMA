@@ -1,1 +1,246 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin — ตรวจภารกิจ ตระกูล A</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          navy: {
+            950: '#0a1128', 900: '#0f1c4d', 800: '#132b6b',
+            700: '#1a3a8f', 600: '#2451b8', 100: '#e5eaf9',
+          },
+          gold: { 400: '#d9b64f', 500: '#c9a227' }
+        },
+        fontFamily: { sans: ['"Noto Sans Thai"', 'ui-sans-serif', 'system-ui'] }
+      }
+    }
+  }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>body { font-family: 'Noto Sans Thai', sans-serif; }</style>
+</head>
+<body class="bg-navy-950 min-h-screen text-slate-100">
 
+<!-- ================= LOGIN VIEW ================= -->
+<div id="loginView" class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-navy-700 to-navy-900 border border-gold-500/30 mb-4">
+        <span class="text-2xl font-extrabold text-gold-400">A</span>
+      </div>
+      <h1 class="text-xl font-bold tracking-wide">แผงควบคุมรุ่นพี่</h1>
+      <p class="text-navy-100/60 text-sm mt-1">ตรวจภารกิจตระกูล A</p>
+    </div>
+
+    <form id="loginForm" class="bg-navy-900/70 border border-navy-700 rounded-2xl p-6 space-y-4 shadow-xl">
+      <div>
+        <label class="text-xs text-navy-100/60 mb-1 block">ชื่อผู้ใช้แอดมิน</label>
+        <input id="loginUser" type="text" required
+          class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+      </div>
+      <div>
+        <label class="text-xs text-navy-100/60 mb-1 block">รหัสผ่าน</label>
+        <input id="loginPass" type="password" required
+          class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+      </div>
+      <p id="loginError" class="text-rose-400 text-xs hidden"></p>
+      <button type="submit" id="loginBtn"
+        class="w-full bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold rounded-lg py-2.5 text-sm transition">
+        เข้าสู่ระบบ
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= QUEUE VIEW ================= -->
+<div id="queueView" class="hidden max-w-3xl mx-auto px-4 py-8">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-lg font-bold">คิวงานรอตรวจ</h1>
+      <p class="text-navy-100/50 text-xs" id="queueCount"></p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="refreshBtn" class="text-xs text-gold-400 underline">รีเฟรช</button>
+      <button id="logoutBtn" class="text-xs text-navy-100/50 hover:text-white underline">ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <div id="emptyState" class="hidden text-center py-20 text-navy-100/40">
+    <p class="text-3xl mb-2">🎉</p>
+    <p class="text-sm">ไม่มีงานค้างตรวจตอนนี้</p>
+  </div>
+
+  <div id="queueList" class="space-y-4"></div>
+</div>
+
+<!-- ================= REJECT MODAL ================= -->
+<div id="rejectModal" class="hidden fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+  <div class="bg-navy-900 border border-navy-700 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6">
+    <h2 class="font-bold mb-4">ระบุเหตุผลที่ปฏิเสธ</h2>
+    <textarea id="rejectReasonInput" rows="3" placeholder="เช่น รูปไม่ชัดเจน / ทำภารกิจไม่ครบตามที่กำหนด"
+      class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
+    <div class="flex gap-2">
+      <button id="cancelReject" class="flex-1 rounded-lg py-2.5 text-sm border border-navy-700 text-navy-100/70">ยกเลิก</button>
+      <button id="confirmReject" class="flex-1 rounded-lg py-2.5 text-sm bg-rose-600 hover:bg-rose-500 text-white font-bold">ยืนยันปฏิเสธ</button>
+    </div>
+  </div>
+</div>
+
+<script src="../config.js"></script>
+<script>
+let state = { token: null };
+let rejectTargetId = null;
+
+function saveSession(token) { localStorage.setItem('a_family_admin_token', token); }
+function loadSession() { return localStorage.getItem('a_family_admin_token'); }
+function clearSession() { localStorage.removeItem('a_family_admin_token'); }
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  errEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ...';
+
+  try {
+    const res = await callApi('adminLogin', {
+      username: document.getElementById('loginUser').value.trim(),
+      password: document.getElementById('loginPass').value
+    });
+    if (!res.success) throw new Error(res.error || 'เข้าสู่ระบบไม่สำเร็จ');
+    saveSession(res.token);
+    state.token = res.token;
+    await loadQueue();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  clearSession();
+  location.reload();
+});
+document.getElementById('refreshBtn').addEventListener('click', loadQueue);
+
+async function loadQueue() {
+  const res = await callApi('getQueue', { token: state.token });
+  if (!res.success) {
+    clearSession();
+    document.getElementById('loginView').classList.remove('hidden');
+    document.getElementById('queueView').classList.add('hidden');
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = res.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('queueView').classList.remove('hidden');
+  renderQueue(res.queue);
+}
+
+function renderQueue(queue) {
+  document.getElementById('queueCount').textContent = `${queue.length} รายการ`;
+  const list = document.getElementById('queueList');
+  const empty = document.getElementById('emptyState');
+  list.innerHTML = '';
+
+  if (queue.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  queue.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'bg-navy-900/60 border border-navy-700 rounded-xl p-4 flex gap-4';
+    card.innerHTML = `
+      <img src="${item.image_url}" class="w-28 h-28 object-cover rounded-lg border border-navy-700 flex-shrink-0 cursor-pointer" onclick="window.open('${item.image_url}', '_blank')" />
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="px-2 py-0.5 rounded-full bg-gold-500 text-navy-950 text-xs font-extrabold">${escapeHtml(item.line_code)}</span>
+          <span class="text-xs text-navy-100/50">ด่านที่ ${item.step}</span>
+        </div>
+        <p class="font-bold text-sm">${escapeHtml(item.nickname)} <span class="text-navy-100/40 font-normal">(${escapeHtml(String(item.student_id))})</span></p>
+        <p class="text-navy-100/70 text-sm mt-1 whitespace-pre-line">${escapeHtml(item.student_msg) || '<span class="text-navy-100/30">— ไม่มีข้อความแนบ —</span>'}</p>
+        <div class="flex gap-2 mt-3">
+          <button class="approveBtn bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg px-3 py-1.5" data-id="${item.sub_id}">✓ อนุมัติ</button>
+          <button class="rejectBtn bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg px-3 py-1.5" data-id="${item.sub_id}">✕ ปฏิเสธ</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  document.querySelectorAll('.approveBtn').forEach(btn => {
+    btn.addEventListener('click', () => approveItem(btn.dataset.id, btn));
+  });
+  document.querySelectorAll('.rejectBtn').forEach(btn => {
+    btn.addEventListener('click', () => openRejectModal(btn.dataset.id));
+  });
+}
+
+async function approveItem(subId, btn) {
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  try {
+    const res = await callApi('approveSubmission', { token: state.token, sub_id: subId });
+    if (!res.success) throw new Error(res.error);
+    await loadQueue();
+  } catch (err) {
+    alert(err.message);
+    btn.disabled = false; btn.textContent = '✓ อนุมัติ';
+  }
+}
+
+function openRejectModal(subId) {
+  rejectTargetId = subId;
+  document.getElementById('rejectReasonInput').value = '';
+  document.getElementById('rejectModal').classList.remove('hidden');
+}
+document.getElementById('cancelReject').addEventListener('click', () => {
+  document.getElementById('rejectModal').classList.add('hidden');
+});
+document.getElementById('confirmReject').addEventListener('click', async () => {
+  const btn = document.getElementById('confirmReject');
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  try {
+    const res = await callApi('rejectSubmission', {
+      token: state.token,
+      sub_id: rejectTargetId,
+      reject_reason: document.getElementById('rejectReasonInput').value.trim()
+    });
+    if (!res.success) throw new Error(res.error);
+    document.getElementById('rejectModal').classList.add('hidden');
+    await loadQueue();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'ยืนยันปฏิเสธ';
+  }
+});
+
+(async function boot() {
+  const token = loadSession();
+  if (token) {
+    state.token = token;
+    await loadQueue();
+  }
+})();
+</script>
+</body>
+</html>
