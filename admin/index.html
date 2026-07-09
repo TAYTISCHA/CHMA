@@ -58,25 +58,77 @@
   </div>
 </div>
 
-<!-- ================= QUEUE VIEW ================= -->
-<div id="queueView" class="hidden max-w-3xl mx-auto px-4 py-8">
+<!-- ================= MAIN APP SHELL ================= -->
+<div id="appShell" class="hidden max-w-3xl mx-auto px-4 py-8">
   <div class="flex items-center justify-between mb-6">
-    <div>
-      <h1 class="text-lg font-bold">คิวงานรอตรวจ</h1>
+    <div class="flex items-center gap-1 bg-navy-900/60 border border-navy-700 rounded-xl p-1">
+      <button id="tabQueue" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold">คิวงานรอตรวจ</button>
+      <button id="tabMissions" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold">จัดการภารกิจ</button>
+    </div>
+    <button id="logoutBtn" class="text-xs text-navy-100/50 hover:text-white underline">ออกจากระบบ</button>
+  </div>
+
+  <!-- ===== QUEUE PANEL ===== -->
+  <div id="queueView">
+    <div class="flex items-center justify-between mb-4">
       <p class="text-navy-100/50 text-xs" id="queueCount"></p>
-    </div>
-    <div class="flex items-center gap-3">
       <button id="refreshBtn" class="text-xs text-gold-400 underline">รีเฟรช</button>
-      <button id="logoutBtn" class="text-xs text-navy-100/50 hover:text-white underline">ออกจากระบบ</button>
     </div>
+
+    <div id="emptyState" class="hidden text-center py-20 text-navy-100/40">
+      <p class="text-3xl mb-2">🎉</p>
+      <p class="text-sm">ไม่มีงานค้างตรวจตอนนี้</p>
+    </div>
+
+    <div id="queueList" class="space-y-4"></div>
   </div>
 
-  <div id="emptyState" class="hidden text-center py-20 text-navy-100/40">
-    <p class="text-3xl mb-2">🎉</p>
-    <p class="text-sm">ไม่มีงานค้างตรวจตอนนี้</p>
-  </div>
+  <!-- ===== MISSIONS PANEL ===== -->
+  <div id="missionsView" class="hidden">
+    <div class="bg-navy-900/60 border border-navy-700 rounded-xl p-4 mb-6">
+      <h2 class="font-bold text-sm mb-4">➕ เพิ่ม / แก้ไขภารกิจ</h2>
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <label class="block">
+          <span class="text-xs text-navy-100/60">สายย่อย</span>
+          <select id="missionLineCode" class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60">
+            <option>A1</option><option>A2</option><option>A3</option>
+            <option>A4</option><option>A5</option><option>A6</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-xs text-navy-100/60">ด่านที่</span>
+          <input id="missionStep" type="number" min="1" value="1"
+            class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+        </label>
+      </div>
+      <label class="block mb-3">
+        <span class="text-xs text-navy-100/60">ชื่อภารกิจ</span>
+        <input id="missionTitle" type="text" placeholder="เช่น ภารกิจที่ 1: ตามหาตึกวิทยาศาสตร์"
+          class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+      </label>
+      <label class="block mb-3">
+        <span class="text-xs text-navy-100/60">รายละเอียดภารกิจ (น้องจะเห็นตอนด่านนี้ active)</span>
+        <textarea id="missionDesc" rows="2"
+          class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
+      </label>
+      <label class="block mb-4">
+        <span class="text-xs text-navy-100/60">คำใบ้ (จะปลดล็อกให้น้องเห็นหลังผ่านด่านนี้แล้วเท่านั้น)</span>
+        <textarea id="missionHint" rows="2"
+          class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
+      </label>
+      <p id="missionError" class="text-rose-400 text-xs mb-2 hidden"></p>
+      <p id="missionSuccess" class="text-emerald-400 text-xs mb-2 hidden"></p>
+      <button id="saveMissionBtn" class="w-full bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold rounded-lg py-2.5 text-sm">
+        บันทึกภารกิจ
+      </button>
+    </div>
 
-  <div id="queueList" class="space-y-4"></div>
+    <h2 class="font-bold text-sm mb-3">📋 ภารกิจทั้งหมด</h2>
+    <div id="missionsEmptyState" class="hidden text-center py-12 text-navy-100/40 text-sm">
+      ยังไม่มีภารกิจในระบบ เริ่มเพิ่มด้านบนได้เลย
+    </div>
+    <div id="missionsList" class="space-y-2"></div>
+  </div>
 </div>
 
 <!-- ================= REJECT MODAL ================= -->
@@ -88,6 +140,7 @@
     <div class="flex gap-2">
       <button id="cancelReject" class="flex-1 rounded-lg py-2.5 text-sm border border-navy-700 text-navy-100/70">ยกเลิก</button>
       <button id="confirmReject" class="flex-1 rounded-lg py-2.5 text-sm bg-rose-600 hover:bg-rose-500 text-white font-bold">ยืนยันปฏิเสธ</button>
+
     </div>
   </div>
 </div>
@@ -107,6 +160,16 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// URL แบบ https://drive.google.com/uc?id=FILE_ID ที่ backend เก็บไว้เดิม
+// มักโหลดไม่ขึ้นตอนใช้เป็น <img src> ตรงๆ (Google คืนหน้า HTML แทนไฟล์ภาพในบางกรณี)
+// แปลงเป็น thumbnail endpoint ซึ่ง render เป็นรูปได้เสถียรกว่า
+function toDriveThumbnail(url, size) {
+  if (!url) return '';
+  const match = String(url).match(/[-\w]{20,}/);
+  if (!match) return url;
+  return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w${size || 1000}`;
+}
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = document.getElementById('loginBtn');
@@ -122,7 +185,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     if (!res.success) throw new Error(res.error || 'เข้าสู่ระบบไม่สำเร็จ');
     saveSession(res.token);
     state.token = res.token;
-    await loadQueue();
+    await switchTab('queue');
   } catch (err) {
     errEl.textContent = err.message;
     errEl.classList.remove('hidden');
@@ -136,21 +199,44 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
   location.reload();
 });
 document.getElementById('refreshBtn').addEventListener('click', loadQueue);
+document.getElementById('tabQueue').addEventListener('click', () => switchTab('queue'));
+document.getElementById('tabMissions').addEventListener('click', () => switchTab('missions'));
+
+let currentTab = 'queue';
+
+function applyTabStyles() {
+  const isQueue = currentTab === 'queue';
+  document.getElementById('tabQueue').className =
+    'tabBtn px-4 py-2 rounded-lg text-sm font-bold ' + (isQueue ? 'bg-gold-500 text-navy-950' : 'text-navy-100/60');
+  document.getElementById('tabMissions').className =
+    'tabBtn px-4 py-2 rounded-lg text-sm font-bold ' + (!isQueue ? 'bg-gold-500 text-navy-950' : 'text-navy-100/60');
+  document.getElementById('queueView').classList.toggle('hidden', !isQueue);
+  document.getElementById('missionsView').classList.toggle('hidden', isQueue);
+}
+
+async function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  applyTabStyles();
+  if (tab === 'queue') {
+    await loadQueue();
+  } else {
+    await loadMissions();
+  }
+}
 
 async function loadQueue() {
   const res = await callApi('getQueue', { token: state.token });
   if (!res.success) {
     clearSession();
     document.getElementById('loginView').classList.remove('hidden');
-    document.getElementById('queueView').classList.add('hidden');
+    document.getElementById('appShell').classList.add('hidden');
     const errEl = document.getElementById('loginError');
     errEl.textContent = res.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
     errEl.classList.remove('hidden');
     return;
   }
-
-  document.getElementById('loginView').classList.add('hidden');
-  document.getElementById('queueView').classList.remove('hidden');
   renderQueue(res.queue);
 }
 
@@ -170,7 +256,10 @@ function renderQueue(queue) {
     const card = document.createElement('div');
     card.className = 'bg-navy-900/60 border border-navy-700 rounded-xl p-4 flex gap-4';
     card.innerHTML = `
-      <img src="${item.image_url}" class="w-28 h-28 object-cover rounded-lg border border-navy-700 flex-shrink-0 cursor-pointer" onclick="window.open('${item.image_url}', '_blank')" />
+      <img src="${toDriveThumbnail(item.image_url, 300)}" loading="lazy"
+        class="w-28 h-28 object-cover rounded-lg border border-navy-700 flex-shrink-0 cursor-pointer bg-navy-800"
+        onclick="window.open('${toDriveThumbnail(item.image_url, 1600)}', '_blank')"
+        onerror="this.onerror=null;this.src='${item.image_url}';" />
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-1">
           <span class="px-2 py-0.5 rounded-full bg-gold-500 text-navy-950 text-xs font-extrabold">${escapeHtml(item.line_code)}</span>
@@ -234,11 +323,110 @@ document.getElementById('confirmReject').addEventListener('click', async () => {
   }
 });
 
+/* ---------------- MISSION MANAGEMENT ---------------- */
+
+async function loadMissions() {
+  const res = await callApi('listMissions', { token: state.token });
+  if (!res.success) {
+    alert(res.error || 'โหลดรายการภารกิจไม่สำเร็จ');
+    return;
+  }
+  renderMissions(res.missions);
+}
+
+function renderMissions(missions) {
+  const list = document.getElementById('missionsList');
+  const empty = document.getElementById('missionsEmptyState');
+  list.innerHTML = '';
+
+  if (!missions || missions.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  missions.forEach(m => {
+    const row = document.createElement('div');
+    row.className = 'bg-navy-900/60 border border-navy-700 rounded-xl p-3 flex items-center gap-3';
+    row.innerHTML = `
+      <span class="px-2 py-0.5 rounded-full bg-gold-500 text-navy-950 text-xs font-extrabold flex-shrink-0">${escapeHtml(m.line_code)}</span>
+      <span class="text-xs text-navy-100/50 flex-shrink-0">ด่าน ${m.step}</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-bold truncate">${escapeHtml(m.task_title)}</p>
+        <p class="text-xs text-navy-100/50 truncate">💡 ${escapeHtml(m.hint_text) || '— ไม่มีคำใบ้ —'}</p>
+      </div>
+      <button class="editMissionBtn text-xs text-gold-400 underline flex-shrink-0"
+        data-line="${escapeHtml(m.line_code)}" data-step="${m.step}"
+        data-title="${escapeHtml(m.task_title)}" data-desc="${escapeHtml(m.task_desc)}" data-hint="${escapeHtml(m.hint_text)}">แก้ไข</button>
+      <button class="deleteMissionBtn text-xs text-rose-400 underline flex-shrink-0"
+        data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">ลบ</button>
+    `;
+    list.appendChild(row);
+  });
+
+  document.querySelectorAll('.editMissionBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('missionLineCode').value = btn.dataset.line;
+      document.getElementById('missionStep').value = btn.dataset.step;
+      document.getElementById('missionTitle').value = btn.dataset.title;
+      document.getElementById('missionDesc').value = btn.dataset.desc;
+      document.getElementById('missionHint').value = btn.dataset.hint;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+  document.querySelectorAll('.deleteMissionBtn').forEach(btn => {
+    btn.addEventListener('click', () => deleteMission(btn.dataset.line, btn.dataset.step));
+  });
+}
+
+document.getElementById('saveMissionBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('saveMissionBtn');
+  const errEl = document.getElementById('missionError');
+  const okEl = document.getElementById('missionSuccess');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+
+  try {
+    const res = await callApi('addMission', {
+      token: state.token,
+      line_code: document.getElementById('missionLineCode').value,
+      step: Number(document.getElementById('missionStep').value),
+      task_title: document.getElementById('missionTitle').value.trim(),
+      task_desc: document.getElementById('missionDesc').value.trim(),
+      hint_text: document.getElementById('missionHint').value.trim()
+    });
+    if (!res.success) throw new Error(res.error || 'บันทึกภารกิจไม่สำเร็จ');
+    okEl.textContent = res.message;
+    okEl.classList.remove('hidden');
+    document.getElementById('missionTitle').value = '';
+    document.getElementById('missionDesc').value = '';
+    document.getElementById('missionHint').value = '';
+    await loadMissions();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'บันทึกภารกิจ';
+  }
+});
+
+async function deleteMission(lineCode, step) {
+  if (!confirm(`ลบภารกิจ ${lineCode} ด่าน ${step} ใช่ไหม?`)) return;
+  try {
+    const res = await callApi('deleteMission', { token: state.token, line_code: lineCode, step: Number(step) });
+    if (!res.success) throw new Error(res.error);
+    await loadMissions();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
 (async function boot() {
   const token = loadSession();
   if (token) {
     state.token = token;
-    await loadQueue();
+    await switchTab('queue');
   }
 })();
 </script>
