@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Admin — ตรวจภารกิจ ตระกูล A</title>
+<title> KME ตระกูล A </title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -30,16 +30,13 @@
 <div id="loginView" class="min-h-screen flex items-center justify-center px-4">
   <div class="w-full max-w-sm">
     <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-navy-700 to-navy-900 border border-gold-500/30 mb-4">
-        <span class="text-2xl font-extrabold text-gold-400">A</span>
-      </div>
-      <h1 class="text-xl font-bold tracking-wide">แผงควบคุมรุ่นพี่</h1>
-      <p class="text-navy-100/60 text-sm mt-1">ตรวจภารกิจตระกูล A</p>
+      <h1 class="text-xl font-bold tracking-wide"> รุ่นพี่ </h1>
+      <p class="text-navy-100/60 text-sm mt-1"> ตระกูล A</p>
     </div>
 
     <form id="loginForm" class="bg-navy-900/70 border border-navy-700 rounded-2xl p-6 space-y-4 shadow-xl">
       <div>
-        <label class="text-xs text-navy-100/60 mb-1 block">ชื่อผู้ใช้แอดมิน</label>
+        <label class="text-xs text-navy-100/60 mb-1 block"> ชื่อเปลี่ยน </label>
         <input id="loginUser" type="text" required
           class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
       </div>
@@ -78,7 +75,7 @@
 
     <div id="emptyState" class="hidden text-center py-20 text-navy-100/40">
       <p class="text-3xl mb-2">🎉</p>
-      <p class="text-sm">ไม่มีงานค้างตรวจตอนนี้</p>
+      <p class="text-sm">ไม่มีน้องส่งมาให้ตรวจตอนนี้</p>
     </div>
 
     <div id="queueList" class="space-y-4"></div>
@@ -87,7 +84,7 @@
   <div id="missionsView" class="hidden">
     
     <div id="centralAdminQueueSection" class="hidden bg-navy-900/40 border border-amber-500/30 rounded-xl p-4 mb-6">
-      <h2 class="font-bold text-sm text-amber-400 mb-3 flex items-center gap-1">📥 คำขอตั้งภารกิจจากรุ่นพี่ที่รอตรวจ</h2>
+      <h2 class="font-bold text-sm text-amber-400 mb-3 flex items-center gap-1">📥 คำขอตั้งคำใบ้จากรุ่นพี่ที่รอตรวจ</h2>
       <div id="missionQueueList" class="space-y-3"></div>
     </div>
 
@@ -113,12 +110,12 @@
           class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
       </label>
       <label class="block mb-3">
-        <span class="text-xs text-navy-100/60">รายละเอียดภารกิจ (น้องจะเห็นตอนด่านนี้ active)</span>
+        <span class="text-xs text-navy-100/60">รายละเอียดภารกิจ ( จะให้น้องทำอะไรเขียนมาได้เลย )</span>
         <textarea id="missionDesc" rows="2"
           class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
       </label>
       <label class="block mb-4">
-        <span class="text-xs text-navy-100/60">คำใบ้ (จะปลดล็อกให้น้องเห็นหลังผ่านด่านนี้แล้วเท่านั้น)</span>
+        <span class="text-xs text-navy-100/60">คำใบ้ (จะบอกแค่ไหนก็ได้ ปล.ให้น้องทำสัก 10 ภารกิจ)</span>
         <textarea id="missionHint" rows="2"
           class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
       </label>
