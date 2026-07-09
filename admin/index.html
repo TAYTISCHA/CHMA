@@ -27,7 +27,6 @@
 </head>
 <body class="bg-navy-950 min-h-screen text-slate-100">
 
-<!-- ================= LOGIN VIEW ================= -->
 <div id="loginView" class="min-h-screen flex items-center justify-center px-4">
   <div class="w-full max-w-sm">
     <div class="text-center mb-8">
@@ -58,7 +57,6 @@
   </div>
 </div>
 
-<!-- ================= MAIN APP SHELL ================= -->
 <div id="appShell" class="hidden max-w-3xl mx-auto px-4 py-8">
   <div class="flex items-center justify-between mb-3">
     <div class="flex items-center gap-2">
@@ -72,7 +70,6 @@
   </div>
   <p class="text-navy-100/30 text-[11px] mb-4" id="scopeHint"></p>
 
-  <!-- ===== QUEUE PANEL ===== -->
   <div id="queueView">
     <div class="flex items-center justify-between mb-4">
       <p class="text-navy-100/50 text-xs" id="queueCount"></p>
@@ -87,14 +84,13 @@
     <div id="queueList" class="space-y-4"></div>
   </div>
 
-  <!-- ===== MISSIONS PANEL ===== -->
   <div id="missionsView" class="hidden">
     <div class="bg-navy-900/60 border border-navy-700 rounded-xl p-4 mb-6">
       <h2 class="font-bold text-sm mb-4">➕ เพิ่ม / แก้ไขภารกิจ</h2>
       <div class="grid grid-cols-2 gap-3 mb-3">
         <label class="block">
           <span class="text-xs text-navy-100/60">สายย่อย</span>
-          <select id="missionLineCode" class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60">
+          <select id="missionLineCode" class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60 disabled:opacity-60 disabled:cursor-not-allowed">
             <option>A1</option><option>A2</option><option>A3</option>
             <option>A4</option><option>A5</option><option>A6</option>
           </select>
@@ -135,7 +131,6 @@
   </div>
 </div>
 
-<!-- ================= REJECT MODAL ================= -->
 <div id="rejectModal" class="hidden fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
   <div class="bg-navy-900 border border-navy-700 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6">
     <h2 class="font-bold mb-4">ระบุเหตุผลที่ปฏิเสธ</h2>
@@ -144,7 +139,6 @@
     <div class="flex gap-2">
       <button id="cancelReject" class="flex-1 rounded-lg py-2.5 text-sm border border-navy-700 text-navy-100/70">ยกเลิก</button>
       <button id="confirmReject" class="flex-1 rounded-lg py-2.5 text-sm bg-rose-600 hover:bg-rose-500 text-white font-bold">ยืนยันปฏิเสธ</button>
-
     </div>
   </div>
 </div>
@@ -169,9 +163,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// URL แบบ https://drive.google.com/uc?id=FILE_ID ที่ backend เก็บไว้เดิม
-// มักโหลดไม่ขึ้นตอนใช้เป็น <img src> ตรงๆ (Google คืนหน้า HTML แทนไฟล์ภาพในบางกรณี)
-// แปลงเป็น thumbnail endpoint ซึ่ง render เป็นรูปได้เสถียรกว่า
 function toDriveThumbnail(url, size) {
   if (!url) return '';
   const match = String(url).match(/[-\w]{20,}/);
@@ -221,18 +212,25 @@ function applyScopeUI() {
   const badge = document.getElementById('scopeBadge');
   const hint = document.getElementById('scopeHint');
   const missionsTabBtn = document.getElementById('tabMissions');
+  const lineSelect = document.getElementById('missionLineCode');
+
+  // แสดงปุ่มแท็บจัดการภารกิจให้แอดมินทุกคนเสมอ
+  missionsTabBtn.classList.remove('hidden');
 
   if (scope === 'ALL') {
     badge.classList.add('hidden');
     hint.textContent = '';
-    missionsTabBtn.classList.remove('hidden');
+    if (lineSelect) lineSelect.disabled = false;
   } else {
     badge.textContent = scope;
     badge.classList.remove('hidden');
-    hint.textContent = `คุณเห็นเฉพาะงานของสาย ${scope} เท่านั้น`;
-    missionsTabBtn.classList.add('hidden');
-    // ถ้าแอดมินสายย่อยพยายามอยู่ในแท็บภารกิจ (เช่นค้างจากตอน ALL) ให้ดีดกลับมาคิวงาน
-    if (currentTab === 'missions') currentTab = 'queue';
+    hint.textContent = `คุณดูแลและเห็นเฉพาะงานของสาย ${scope} เท่านั้น`;
+    
+    // ล็อก Dropdown สายย่อยให้ตรงกับ Scope ของรุ่นพี่คนนั้นๆ และห้ามเปลี่ยน
+    if (lineSelect) {
+      lineSelect.value = scope;
+      lineSelect.disabled = true;
+    }
   }
 }
 
@@ -247,7 +245,7 @@ function applyTabStyles() {
 }
 
 async function switchTab(tab) {
-  if (tab === 'missions' && state.scope !== 'ALL') return; // กันการสลับแท็บที่ไม่มีสิทธิ์
+  // ปลดล็อกเงื่อนไขเดิมที่กั้นสิทธิ์ไม่ให้เข้าใช้งานแท็บภารกิจออกแล้ว
   currentTab = tab;
   document.getElementById('loginView').classList.add('hidden');
   document.getElementById('appShell').classList.remove('hidden');
@@ -378,13 +376,18 @@ function renderMissions(missions) {
   const empty = document.getElementById('missionsEmptyState');
   list.innerHTML = '';
 
-  if (!missions || missions.length === 0) {
+  // เพิ่มระบบ Filter ฝั่ง Frontend: ถ้ารุ่นพี่ไม่ใช่สิทธิ์ ALL ให้แสดงเฉพาะภารกิจของสายตัวเอง
+  const filteredMissions = state.scope === 'ALL' 
+    ? (missions || [])
+    : (missions || []).filter(m => m.line_code === state.scope);
+
+  if (filteredMissions.length === 0) {
     empty.classList.remove('hidden');
     return;
   }
   empty.classList.add('hidden');
 
-  missions.forEach(m => {
+  filteredMissions.forEach(m => {
     const row = document.createElement('div');
     row.className = 'bg-navy-900/60 border border-navy-700 rounded-xl p-3 flex items-center gap-3';
     row.innerHTML = `
