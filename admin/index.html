@@ -3,54 +3,74 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Admin — ตรวจภารกิจ ตระกูล A</title>
+<title>ตรวจภารกิจ ตระกูล A</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
     theme: {
       extend: {
         colors: {
-          navy: {
-            950: '#0a1128', 900: '#0f1c4d', 800: '#132b6b',
-            700: '#1a3a8f', 600: '#2451b8', 100: '#e5eaf9',
+          bangmod: {
+            DEFAULT: '#FA4616', // สีส้มบางมดหลัก
+            400: '#ff6c47',
+            500: '#FA4616',
+            600: '#d4350b',
+            950: '#140501',
           },
-          gold: { 400: '#d9b64f', 500: '#c9a227' }
-        },
-        fontFamily: { sans: ['"Noto Sans Thai"', 'ui-sans-serif', 'system-ui'] }
+          dark: {
+            950: '#0b0c10',
+            900: '#14151a',
+            800: '#1f212a',
+            700: '#2c2e3b'
+          }
+        }
       }
     }
   }
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>body { font-family: 'Noto Sans Thai', sans-serif; }</style>
+<link rel="stylesheet" href="style.css" />
 </head>
-<body class="bg-navy-950 min-h-screen text-slate-100">
+<body class="bg-dark-950 min-h-screen text-slate-100 antialiased">
 
-<div id="loginView" class="min-h-screen flex items-center justify-center px-4">
-  <div class="w-full max-w-sm">
-    <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-navy-700 to-navy-900 border border-gold-500/30 mb-4">
-        <span class="text-2xl font-extrabold text-gold-400">A</span>
+<div class="glow-bg"></div>
+
+<div id="loginView" class="min-h-screen flex items-center justify-center px-4 py-12">
+  <div class="w-full max-w-md">
+    
+    <div class="glass-panel rounded-2xl p-2 mb-6 shadow-2xl relative overflow-hidden group">
+      <div class="aspect-[16/9] w-full rounded-xl bg-dark-900/80 border border-white/5 flex flex-col items-center justify-center relative overflow-hidden">
+        <div class="text-center p-4 z-10">
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-bangmod/10 text-bangmod mb-2">
+            ✨
+          </div>
+          <p class="text-xs text-slate-400 font-medium">พื้นที่สำหรับรูปภาพสายรหัส ตระกูล A</p>
+        </div>
+        <div class="absolute inset-0 bg-gradient-to-t from-dark-950 via-transparent to-transparent opacity-60"></div>
       </div>
-      <h1 class="text-xl font-bold tracking-wide">แผงควบคุมรุ่นพี่</h1>
-      <p class="text-navy-100/60 text-sm mt-1">ตรวจภารกิจตระกูล A</p>
     </div>
 
-    <form id="loginForm" class="bg-navy-900/70 border border-navy-700 rounded-2xl p-6 space-y-4 shadow-xl">
+    <div class="text-center mb-6">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-bangmod to-amber-600 border border-white/20 mb-3 shadow-lg shadow-bangmod/20">
+        <span class="text-2xl font-black text-white">A</span>
+      </div>
+      <h1 class="text-xl font-bold tracking-wide bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">แผงควบคุมรุ่นพี่</h1>
+      <p class="text-slate-400 text-xs mt-1">ระบบจัดการและตรวจภารกิจตระกูล A</p>
+    </div>
+
+    <form id="loginForm" class="glass-panel rounded-2xl p-6 space-y-4 shadow-2xl">
       <div>
-        <label class="text-xs text-navy-100/60 mb-1 block">ชื่อผู้ใช้แอดมิน</label>
+        <label class="text-xs text-slate-400 mb-1.5 block font-medium">ชื่อผู้ใช้แอดมิน</label>
         <input id="loginUser" type="text" required
-          class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+          class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-bangmod/50 focus:border-bangmod transition-all text-white placeholder-slate-600" placeholder="Username" />
       </div>
       <div>
-        <label class="text-xs text-navy-100/60 mb-1 block">รหัสผ่าน</label>
+        <label class="text-xs text-slate-400 mb-1.5 block font-medium">รหัสผ่าน</label>
         <input id="loginPass" type="password" required
-          class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+          class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-bangmod/50 focus:border-bangmod transition-all text-white placeholder-slate-600" placeholder="••••••••" />
       </div>
-      <p id="loginError" class="text-rose-400 text-xs hidden"></p>
+      <p id="loginError" class="text-rose-400 text-xs hidden bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg"></p>
       <button type="submit" id="loginBtn"
-        class="w-full bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold rounded-lg py-2.5 text-sm transition">
+        class="w-full bg-bangmod hover:bg-bangmod-400 text-white font-bold rounded-xl py-2.5 text-sm transition-all shadow-lg shadow-bangmod/20 active:scale-[0.98]">
         เข้าสู่ระบบ
       </button>
     </form>
@@ -58,27 +78,27 @@
 </div>
 
 <div id="appShell" class="hidden max-w-3xl mx-auto px-4 py-8">
-  <div class="flex items-center justify-between mb-3">
-    <div class="flex items-center gap-2">
-      <div class="flex items-center gap-1 bg-navy-900/60 border border-navy-700 rounded-xl p-1">
-        <button id="tabQueue" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold">คิวงานรอตรวจ</button>
-        <button id="tabMissions" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold">จัดการภารกิจ</button>
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-1 backdrop-blur-md">
+        <button id="tabQueue" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold transition-all">คิวงานรอตรวจ</button>
+        <button id="tabMissions" class="tabBtn px-4 py-2 rounded-lg text-sm font-bold transition-all">จัดการภารกิจ</button>
       </div>
-      <span id="scopeBadge" class="hidden px-2.5 py-1 rounded-full bg-gold-500 text-navy-950 text-xs font-extrabold"></span>
+      <span id="scopeBadge" class="hidden px-2.5 py-1 rounded-full bg-bangmod text-white text-xs font-black shadow-md shadow-bangmod/20"></span>
     </div>
-    <button id="logoutBtn" class="text-xs text-navy-100/50 hover:text-white underline">ออกจากระบบ</button>
+    <button id="logoutBtn" class="text-xs text-slate-400 hover:text-rose-400 underline transition-colors">ออกจากระบบ</button>
   </div>
-  <p class="text-navy-100/30 text-[11px] mb-4" id="scopeHint"></p>
+  <p class="text-slate-400 text-[11px] mb-6 bg-white/5 border border-white/5 rounded-lg px-3 py-1.5 inline-block" id="scopeHint"></p>
 
   <div id="queueView">
     <div class="flex items-center justify-between mb-4">
-      <p class="text-navy-100/50 text-xs" id="queueCount"></p>
-      <button id="refreshBtn" class="text-xs text-gold-400 underline">รีเฟรช</button>
+      <p class="text-slate-400 text-xs font-medium" id="queueCount"></p>
+      <button id="refreshBtn" class="text-xs text-bangmod-400 hover:text-bangmod font-bold underline transition-colors">รีเฟรชข้อมูล</button>
     </div>
 
-    <div id="emptyState" class="hidden text-center py-20 text-navy-100/40">
-      <p class="text-3xl mb-2">🎉</p>
-      <p class="text-sm">ไม่มีงานค้างตรวจตอนนี้</p>
+    <div id="emptyState" class="hidden text-center py-20 glass-panel rounded-2xl">
+      <p class="text-4xl mb-3">🎉</p>
+      <p class="text-sm font-medium text-slate-300">ไม่มีงานค้างตรวจตอนนี้ เก่งมาก!</p>
     </div>
 
     <div id="queueList" class="space-y-4"></div>
@@ -86,65 +106,66 @@
 
   <div id="missionsView" class="hidden">
     
-    <div id="centralAdminQueueSection" class="hidden bg-navy-900/40 border border-amber-500/30 rounded-xl p-4 mb-6">
-      <h2 class="font-bold text-sm text-amber-400 mb-3 flex items-center gap-1">📥 คำขอตั้งภารกิจจากรุ่นพี่ที่รอตรวจ</h2>
+    <div id="centralAdminQueueSection" class="hidden glass-card-orange rounded-2xl p-4 mb-6 animate-pulse-subtle">
+      <h2 class="font-bold text-sm text-bangmod-400 mb-3 flex items-center gap-1.5">📥 คำขอตั้งภารกิจจากรุ่นพี่ที่รอตรวจ</h2>
       <div id="missionQueueList" class="space-y-3"></div>
     </div>
 
-    <div class="bg-navy-900/60 border border-navy-700 rounded-xl p-4 mb-6">
-      <h2 class="font-bold text-sm mb-4" id="missionFormTitle">➕ เพิ่ม / แก้ไขภารกิจ</h2>
+    <div class="glass-panel rounded-2xl p-5 mb-6">
+      <h2 class="font-bold text-sm mb-4 text-slate-200 border-b border-white/10 pb-2" id="missionFormTitle">➕ เพิ่ม / แก้ไขภารกิจ</h2>
       <div class="grid grid-cols-2 gap-3 mb-3">
         <label class="block">
-          <span class="text-xs text-navy-100/60">สายย่อย</span>
-          <select id="missionLineCode" class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60 disabled:opacity-60 disabled:cursor-not-allowed">
+          <span class="text-xs text-slate-400 font-medium">สายย่อย</span>
+          <select id="missionLineCode" class="w-full mt-1.5 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bangmod/50 disabled:opacity-50 disabled:cursor-not-allowed text-white">
             <option>A1</option><option>A2</option><option>A3</option>
             <option>A4</option><option>A5</option><option>A6</option>
           </select>
         </label>
         <label class="block">
-          <span class="text-xs text-navy-100/60">ด่านที่</span>
+          <span class="text-xs text-slate-400 font-medium">ด่านที่</span>
           <input id="missionStep" type="number" min="1" value="1"
-            class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+            class="w-full mt-1.5 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bangmod/50 text-white" />
         </label>
       </div>
       <label class="block mb-3">
-        <span class="text-xs text-navy-100/60">ชื่อภารกิจ</span>
+        <span class="text-xs text-slate-400 font-medium">ชื่อภารกิจ</span>
         <input id="missionTitle" type="text" placeholder="เช่น ภารกิจที่ 1: ตามหาตึกวิทยาศาสตร์"
-          class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+          class="w-full mt-1.5 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bangmod/50 text-white placeholder-slate-600" />
       </label>
       <label class="block mb-3">
-        <span class="text-xs text-navy-100/60">รายละเอียดภารกิจ (น้องจะเห็นตอนด่านนี้ active)</span>
-        <textarea id="missionDesc" rows="2"
-          class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
+        <span class="text-xs text-slate-400 font-medium">รายละเอียดภารกิจ (น้องจะเห็นตอนด่านนี้ active)</span>
+        <textarea id="missionDesc" rows="2" placeholder="อธิบายเงื่อนไขภารกิจ..."
+          class="w-full mt-1.5 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bangmod/50 text-white placeholder-slate-600 resize-none"></textarea>
       </label>
       <label class="block mb-4">
-        <span class="text-xs text-navy-100/60">คำใบ้ (จะปลดล็อกให้น้องเห็นหลังผ่านด่านนี้แล้วเท่านั้น)</span>
-        <textarea id="missionHint" rows="2"
-          class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
+        <span class="text-xs text-slate-400 font-medium">คำใบ้ (จะปลดล็อกให้น้องเห็นหลังผ่านด่านนี้แล้วเท่านั้น)</span>
+        <textarea id="missionHint" rows="2" placeholder="ใส่คำใบ้สำหรับด่านถัดไป..."
+          class="w-full mt-1.5 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-bangmod/50 text-white placeholder-slate-600 resize-none"></textarea>
       </label>
-      <p id="missionError" class="text-rose-400 text-xs mb-2 hidden"></p>
-      <p id="missionSuccess" class="text-emerald-400 text-xs mb-2 hidden font-medium"></p>
-      <button id="saveMissionBtn" class="w-full bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold rounded-lg py-2.5 text-sm transition">
+      <p id="missionError" class="text-rose-400 text-xs mb-3 hidden bg-rose-500/10 border border-rose-500/20 p-2 rounded-lg"></p>
+      <p id="missionSuccess" class="text-emerald-400 text-xs mb-3 hidden font-medium bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-lg"></p>
+      <button id="saveMissionBtn" class="w-full bg-bangmod hover:bg-bangmod-400 text-white font-bold rounded-xl py-2.5 text-sm transition-all shadow-lg shadow-bangmod/20 active:scale-[0.98]">
         บันทึกภารกิจ
       </button>
     </div>
 
-    <h2 class="font-bold text-sm mb-3">📋 ภารกิจทั้งหมด</h2>
-    <div id="missionsEmptyState" class="hidden text-center py-12 text-navy-100/40 text-sm">
-      ยังไม่มีภารกิจในระบบ เริ่มเพิ่มด้านบนได้เลย
+    <h2 class="font-bold text-sm mb-3 text-slate-300 flex items-center gap-1.5">📋 ภารกิจทั้งหมดในระบบ</h2>
+    <div id="missionsEmptyState" class="hidden text-center py-12 glass-panel rounded-2xl text-slate-400 text-sm">
+      ยังไม่มีภารกิจในระบบ เริ่มเพิ่มจากฟอร์มด้านบนได้เลย
     </div>
     <div id="missionsList" class="space-y-3"></div>
   </div>
 </div>
 
-<div id="rejectModal" class="hidden fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-  <div class="bg-navy-900 border border-navy-700 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6">
-    <h2 class="font-bold mb-4" id="rejectModalTitle">ระบุเหตุผลที่ปฏิเสธ</h2>
+<div id="rejectModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 transition-all">
+  <div class="glass-panel border-white/10 bg-dark-900/90 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6 shadow-2xl">
+    <h2 class="font-bold mb-1 text-slate-100 text-base" id="rejectModalTitle">ระบุเหตุผลที่ปฏิเสธ</h2>
+    <p class="text-[11px] text-slate-400 mb-3">ระบบจะส่งเหตุผลนี้กลับไปแจ้งเตือนผู้ส่งโดยตรง</p>
     <textarea id="rejectReasonInput" rows="3" placeholder="เช่น รูปไม่ชัดเจน / คำใบ้ไม่เหมาะสม คลุมเครือเกินไป"
-      class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
+      class="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-bangmod/50 text-white placeholder-slate-600 resize-none"></textarea>
     <div class="flex gap-2">
-      <button id="cancelReject" class="flex-1 rounded-lg py-2.5 text-sm border border-navy-700 text-navy-100/70">ยกเลิก</button>
-      <button id="confirmReject" class="flex-1 rounded-lg py-2.5 text-sm bg-rose-600 hover:bg-rose-500 text-white font-bold">ยืนยันปฏิเสธ</button>
+      <button id="cancelReject" class="flex-1 rounded-xl py-2.5 text-sm border border-white/10 text-slate-300 hover:bg-white/5 transition-colors">ยกเลิก</button>
+      <button id="confirmReject" class="flex-1 rounded-xl py-2.5 text-sm bg-rose-600 hover:bg-rose-500 text-white font-bold transition-colors shadow-lg shadow-rose-600/20">ยืนยันปฏิเสธ</button>
     </div>
   </div>
 </div>
@@ -152,7 +173,7 @@
 <script src="../config.js"></script>
 <script>
 let state = { token: null, scope: 'ALL', rejectType: 'student' }; 
-let rejectTargetId = null; // เก็บ sub_id (ของนักศึกษา) หรือ "lineCode_step" (ของรุ่นพี่)
+let rejectTargetId = null;
 
 function saveSession(token) { localStorage.setItem('a_family_admin_token', token); }
 function loadSession() { return localStorage.getItem('a_family_admin_token'); }
@@ -227,32 +248,32 @@ function applyScopeUI() {
 
   if (scope === 'ALL') {
     badge.classList.add('hidden');
-    hint.textContent = 'คุณเข้าใช้งานในฐานะแอดมินกลาง สามารถตรวจงานนักศึกษาและภารกิจของรุ่นพี่ได้ทุกสาย';
+    hint.textContent = '💼 สิทธิ์แอดมินกลาง: สามารถตรวจงานน้องๆ และภารกิจของรุ่นพี่ได้ทุกสายย่อย';
     if (lineSelect) lineSelect.disabled = false;
     if (saveBtn) saveBtn.textContent = 'บันทึกและอนุมัติภารกิจทันที';
     if (formTitle) formTitle.textContent = '➕ เพิ่ม / แก้ไขภารกิจ (ระบบส่วนกลาง)';
-    if (adminQueueSection) adminQueueSection.classList.remove('hidden'); // แสดงคิวตรวจภารกิจรุ่นพี่
+    if (adminQueueSection) adminQueueSection.classList.remove('hidden');
   } else {
     badge.textContent = scope;
     badge.classList.remove('hidden');
-    hint.textContent = `คุณดูแลและเห็นเฉพาะงานของสาย ${scope} เท่านั้น`;
+    hint.textContent = `🔒 สายการดูแล: คุณเห็นและอนุมัติเฉพาะงานของสาย ${scope} เท่านั้น`;
     
     if (lineSelect) {
       lineSelect.value = scope;
       lineSelect.disabled = true;
     }
-    if (saveBtn) saveBtn.textContent = 'ส่งคำขอเพิ่ม/แก้ไขภารกิจไปยังแอดมินกลาง';
+    if (saveBtn) saveBtn.textContent = 'ส่งคำขอเพิ่ม/แก้ไขไปยังแอดมินกลาง';
     if (formTitle) formTitle.textContent = '📝 ส่งคำขอเพิ่ม / แก้ไขคำใบ้ภารกิจ';
-    if (adminQueueSection) adminQueueSection.classList.add('hidden'); // ซ่อนคิวตรวจภารกิจรุ่นพี่
+    if (adminQueueSection) adminQueueSection.classList.add('hidden');
   }
 }
 
 function applyTabStyles() {
   const isQueue = currentTab === 'queue';
   document.getElementById('tabQueue').className =
-    'tabBtn px-4 py-2 rounded-lg text-sm font-bold ' + (isQueue ? 'bg-gold-500 text-navy-950' : 'text-navy-100/60');
+    'tabBtn px-4 py-2 rounded-lg text-sm font-bold ' + (isQueue ? 'bg-bangmod text-white shadow-md shadow-bangmod/20' : 'text-slate-400 hover:text-slate-200');
   document.getElementById('tabMissions').className =
-    'tabBtn px-4 py-2 rounded-lg text-sm font-bold ' + (!isQueue ? 'bg-gold-500 text-navy-950' : 'text-navy-100/60');
+    'tabBtn px-4 py-2 rounded-lg text-sm font-bold ' + (!isQueue ? 'bg-bangmod text-white shadow-md shadow-bangmod/20' : 'text-slate-400 hover:text-slate-200');
   document.getElementById('queueView').classList.toggle('hidden', !isQueue);
   document.getElementById('missionsView').classList.toggle('hidden', isQueue);
 }
@@ -290,7 +311,7 @@ async function loadQueue() {
 }
 
 function renderQueue(queue) {
-  document.getElementById('queueCount').textContent = `${queue.length} รายการ`;
+  document.getElementById('queueCount').textContent = `📥 ตกค้างในคิวระบบ ${queue.length} รายการ`;
   const list = document.getElementById('queueList');
   const empty = document.getElementById('emptyState');
   list.innerHTML = '';
@@ -303,22 +324,24 @@ function renderQueue(queue) {
 
   queue.forEach(item => {
     const card = document.createElement('div');
-    card.className = 'bg-navy-900/60 border border-navy-700 rounded-xl p-4 flex gap-4';
+    card.className = 'glass-panel rounded-2xl p-4 flex gap-4 hover:border-white/15 transition-all shadow-md';
     card.innerHTML = `
       <img src="${toDriveThumbnail(item.image_url, 300)}" loading="lazy"
-        class="w-28 h-28 object-cover rounded-lg border border-navy-700 flex-shrink-0 cursor-pointer bg-navy-800"
+        class="w-28 h-28 object-cover rounded-xl border border-white/10 flex-shrink-0 cursor-pointer bg-black/20 hover:scale-[1.02] transition-transform"
         onclick="window.open('${toDriveThumbnail(item.image_url, 1600)}', '_blank')"
         onerror="this.onerror=null;this.src='${item.image_url}';" />
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="px-2 py-0.5 rounded-full bg-gold-500 text-navy-950 text-xs font-extrabold">${escapeHtml(item.line_code)}</span>
-          <span class="text-xs text-navy-100/50">ด่านที่ ${item.step}</span>
+      <div class="flex-1 min-w-0 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="px-2 py-0.5 rounded-full bg-bangmod text-white text-[10px] font-black">${escapeHtml(item.line_code)}</span>
+            <span class="text-xs text-slate-400 font-medium">ด่านที่ ${item.step}</span>
+          </div>
+          <p class="font-bold text-sm text-slate-200">${escapeHtml(item.nickname)} <span class="text-slate-500 text-xs font-normal">(${escapeHtml(String(item.student_id))})</span></p>
+          <p class="text-slate-300 text-xs mt-1 whitespace-pre-line bg-black/20 border border-white/5 rounded-lg p-2">${escapeHtml(item.student_msg) || '<span class="text-slate-600 font-light">— ไม่มีข้อความแนบ —</span>'}</p>
         </div>
-        <p class="font-bold text-sm">${escapeHtml(item.nickname)} <span class="text-navy-100/40 font-normal">(${escapeHtml(String(item.student_id))})</span></p>
-        <p class="text-navy-100/70 text-sm mt-1 whitespace-pre-line">${escapeHtml(item.student_msg) || '<span class="text-navy-100/30">— ไม่มีข้อความแนบ —</span>'}</p>
         <div class="flex gap-2 mt-3">
-          <button class="approveBtn bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg px-3 py-1.5" data-id="${item.sub_id}">✓ อนุมัติ</button>
-          <button class="rejectBtn bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg px-3 py-1.5" data-id="${item.sub_id}">✕ ปฏิเสธ</button>
+          <button class="approveBtn bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl px-3 py-2 transition-colors flex-1 sm:flex-initial" data-id="${item.sub_id}">✓ อนุมัติ</button>
+          <button class="rejectBtn bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl px-3 py-2 transition-colors flex-1 sm:flex-initial" data-id="${item.sub_id}">✕ ปฏิเสธ</button>
         </div>
       </div>
     `;
@@ -334,7 +357,7 @@ function renderQueue(queue) {
 }
 
 async function approveItem(subId, btn) {
-  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  btn.disabled = true; btn.textContent = 'บันทึกคำสั่ง...';
   try {
     const res = await callApi('approveSubmission', { token: state.token, sub_id: subId });
     if (!res.success) throw new Error(res.error);
@@ -347,11 +370,11 @@ async function approveItem(subId, btn) {
 
 function openRejectModal(id, type) {
   rejectTargetId = id;
-  state.rejectType = type; // 'student' หรือ 'mission'
+  state.rejectType = type;
   document.getElementById('rejectReasonInput').value = '';
   
   if (type === 'mission') {
-    document.getElementById('rejectModalTitle').textContent = 'ระบุเหตุผลที่ปฏิเสธภารกิจของรุ่นพี่';
+    document.getElementById('rejectModalTitle').textContent = 'ระบุเหตุผลที่ปฏิเสธภารกิจ';
   } else {
     document.getElementById('rejectModalTitle').textContent = 'ระบุเหตุผลที่ปฏิเสธงานของน้อง';
   }
@@ -371,7 +394,6 @@ document.getElementById('confirmReject').addEventListener('click', async () => {
   btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
   try {
     if (state.rejectType === 'student') {
-      // เคสปฏิเสธงานของน้องนักศึกษา
       const res = await callApi('rejectSubmission', {
         token: state.token,
         sub_id: rejectTargetId,
@@ -380,7 +402,6 @@ document.getElementById('confirmReject').addEventListener('click', async () => {
       if (!res.success) throw new Error(res.error);
       await loadQueue();
     } else {
-      // เคสปฏิเสธภารกิจ/คำใบ้ของรุ่นพี่สายย่อย (ระบุสายและด่านจาก targetId)
       const [lineCode, step] = rejectTargetId.split('_');
       const res = await callApi('rejectMission', {
         token: state.token,
@@ -389,7 +410,7 @@ document.getElementById('confirmReject').addEventListener('click', async () => {
         reject_reason: reason
       });
       if (!res.success) throw new Error(res.error);
-      await loadMissions(); // รีเฟรชหน้าสลับภารกิจ
+      await loadMissions();
     }
     document.getElementById('rejectModal').classList.add('hidden');
   } catch (err) {
@@ -398,8 +419,6 @@ document.getElementById('confirmReject').addEventListener('click', async () => {
     btn.disabled = false; btn.textContent = 'ยืนยันปฏิเสธ';
   }
 });
-
-/* ---------------- MISSION MANAGEMENT ---------------- */
 
 async function loadMissions() {
   try {
@@ -410,7 +429,6 @@ async function loadMissions() {
     }
     renderMissions(res.missions);
 
-    // หากเป็นแอดมินกลาง ให้โหลดคิวงานที่รุ่นพี่ส่งมาเพิ่มด้วย
     if (state.scope === 'ALL') {
       const queueRes = await callApi('getMissionQueue', { token: state.token });
       if (queueRes.success) {
@@ -422,7 +440,6 @@ async function loadMissions() {
   }
 }
 
-// ฟังก์ชันใหม่: แสดงผลรายการตั้งภารกิจของรุ่นพี่ที่รอตรวจ (สำหรับแอดมินกลาง)
 function renderMissionQueue(queue) {
   const container = document.getElementById('centralAdminQueueSection');
   const list = document.getElementById('missionQueueList');
@@ -436,19 +453,19 @@ function renderMissionQueue(queue) {
 
   queue.forEach(m => {
     const card = document.createElement('div');
-    card.className = 'bg-navy-950 border border-amber-500/20 rounded-xl p-3 text-sm';
+    card.className = 'bg-black/40 border border-white/10 rounded-xl p-3 text-sm';
     card.innerHTML = `
       <div class="flex items-center gap-2 mb-1.5">
-        <span class="px-2 py-0.5 rounded-full bg-amber-500 text-navy-950 text-xs font-extrabold">สาย ${escapeHtml(m.line_code)}</span>
-        <span class="text-xs font-bold text-amber-400">ด่านที่ ${m.step}</span>
+        <span class="px-2 py-0.5 rounded-full bg-bangmod text-white text-[10px] font-bold">สาย ${escapeHtml(m.line_code)}</span>
+        <span class="text-xs font-bold text-bangmod-400">ด่านที่ ${m.step}</span>
       </div>
       <p class="font-bold text-white mb-0.5">หัวข้อ: ${escapeHtml(m.task_title)}</p>
-      <p class="text-navy-100/70 text-xs mb-1"><b>วิธีทำ:</b> ${escapeHtml(m.task_desc)}</p>
-      <p class="text-navy-100/70 text-xs mb-3"><b>คำใบ้หลังผ่าน:</b> ${escapeHtml(m.hint_text) || '— ไม่มี —'}</p>
+      <p class="text-slate-300 text-xs mb-1"><b>วิธีทำ:</b> ${escapeHtml(m.task_desc)}</p>
+      <p class="text-slate-400 text-xs mb-3"><b>คำใบ้หลังผ่าน:</b> ${escapeHtml(m.hint_text) || '— ไม่มี —'}</p>
       <div class="flex gap-2">
-        <button class="approveMissionBtn bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg px-2.5 py-1" 
+        <button class="approveMissionBtn bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg px-2.5 py-1 transition-colors" 
           data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">✓ ผ่านอนุมัติ</button>
-        <button class="rejectMissionBtn bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg px-2.5 py-1" 
+        <button class="rejectMissionBtn bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg px-2.5 py-1 transition-colors" 
           data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">✕ ไม่ผ่าน (คอมเมนต์)</button>
       </div>
     `;
@@ -475,7 +492,6 @@ function renderMissionQueue(queue) {
 
   document.querySelectorAll('.rejectMissionBtn').forEach(btn => {
     btn.addEventListener('click', () => {
-      // ผสานการปฏิเสธภารกิจโดยเก็บค่าในรูปสายรหัส_ด่าน เช่น "A1_2"
       openRejectModal(`${btn.dataset.line}_${btn.dataset.step}`, 'mission');
     });
   });
@@ -498,46 +514,44 @@ function renderMissions(missions) {
 
   filteredMissions.forEach(m => {
     const row = document.createElement('div');
-    
-    // ตั้งค่าสีกล่องและ Badge ตามสถานะการตรวจสอบของด่าน
     let statusBadge = '';
-    let borderClass = 'border-navy-700 bg-navy-900/60';
+    let borderClass = 'border-white/10 bg-white/5';
     let rejectCommentHtml = '';
 
     if (m.status === 'Pending') {
-      statusBadge = `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">⏳ รอตรวจ</span>`;
-      borderClass = 'border-amber-500/30 bg-amber-950/10';
+      statusBadge = `<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-bold border border-amber-500/20">⏳ รอตรวจ</span>`;
+      borderClass = 'border-amber-500/20 bg-amber-500/5';
     } else if (m.status === 'Rejected') {
-      statusBadge = `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-bold">✕ ต้องแก้ไข</span>`;
-      borderClass = 'border-rose-500/30 bg-rose-950/10';
+      statusBadge = `<span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px] font-bold border border-rose-500/20">✕ ต้องแก้ไข</span>`;
+      borderClass = 'border-rose-500/20 bg-rose-500/5';
       rejectCommentHtml = `
         <div class="mt-2 text-xs bg-rose-950/40 border border-rose-500/20 rounded-lg p-2 text-rose-300">
           <b>เหตุผลที่ไม่ผ่าน:</b> ${escapeHtml(m.reject_reason)}
         </div>
       `;
     } else {
-      statusBadge = `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">✓ ใช้งานอยู่</span>`;
+      statusBadge = `<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">✓ ใช้งานอยู่</span>`;
     }
     
     const deleteButtonHtml = state.scope === 'ALL'
-      ? `<button class="deleteMissionBtn text-xs text-rose-400 underline flex-shrink-0" data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">ลบ</button>`
+      ? `<button class="deleteMissionBtn text-xs text-rose-400 hover:text-rose-300 underline flex-shrink-0" data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">ลบ</button>`
       : '';
 
-    row.className = `${borderClass} border rounded-xl p-3 flex flex-col gap-1`;
+    row.className = `${borderClass} border rounded-2xl p-3.5 flex flex-col gap-1 transition-colors`;
     row.innerHTML = `
       <div class="flex items-center gap-2">
-        <span class="px-2 py-0.5 rounded-full bg-gold-500 text-navy-950 text-xs font-extrabold flex-shrink-0">${escapeHtml(m.line_code)}</span>
-        <span class="text-xs text-navy-100/50 flex-shrink-0">ด่าน ${m.step}</span>
+        <span class="px-2 py-0.5 rounded-full bg-bangmod text-white text-[10px] font-black flex-shrink-0">${escapeHtml(m.line_code)}</span>
+        <span class="text-xs text-slate-400 font-bold flex-shrink-0">ด่าน ${m.step}</span>
         ${statusBadge}
         <div class="flex-1"></div>
-        <button class="editMissionBtn text-xs text-gold-400 underline flex-shrink-0 mr-2"
+        <button class="editMissionBtn text-xs text-bangmod-400 hover:text-bangmod underline flex-shrink-0 mr-3 font-medium"
           data-line="${escapeHtml(m.line_code)}" data-step="${m.step}"
           data-title="${escapeHtml(m.task_title)}" data-desc="${escapeHtml(m.task_desc)}" data-hint="${escapeHtml(m.hint_text)}">แก้ไข</button>
         ${deleteButtonHtml}
       </div>
       <div class="mt-1">
-        <p class="text-sm font-bold text-white">${escapeHtml(m.task_title)}</p>
-        <p class="text-xs text-navy-100/50 truncate mt-0.5">💡 ${escapeHtml(m.hint_text) || '— ไม่มีคำใบ้ —'}</p>
+        <p class="text-sm font-bold text-slate-200">${escapeHtml(m.task_title)}</p>
+        <p class="text-xs text-slate-400 truncate mt-1 bg-black/10 rounded px-2 py-1 inline-block max-w-full">💡 คำใบ้: ${escapeHtml(m.hint_text) || '— ไม่มีคำใบ้ —'}</p>
       </div>
       ${rejectCommentHtml}
     `;
@@ -569,7 +583,6 @@ document.getElementById('saveMissionBtn').addEventListener('click', async () => 
   btn.disabled = true; btn.textContent = 'กำลังดำเนินการ...';
 
   try {
-    // ส่งคำขอเข้า API จริง (หลังบ้านรองรับสิทธิ์รุ่นพี่สายย่อยและจะติดสเตตัส Pending อัตโนมัติแล้ว)
     const res = await callApi('addMission', {
       token: state.token,
       line_code: document.getElementById('missionLineCode').value,
@@ -584,7 +597,6 @@ document.getElementById('saveMissionBtn').addEventListener('click', async () => 
     okEl.textContent = res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว!';
     okEl.classList.remove('hidden');
     
-    // ล้างค่าในช่องกรอกข้อมูล
     document.getElementById('missionTitle').value = '';
     document.getElementById('missionDesc').value = '';
     document.getElementById('missionHint').value = '';
@@ -619,7 +631,7 @@ async function deleteMission(lineCode, step) {
   }
 })();
 </script>
-<p class="text-center text-navy-100/20 text-[11px] py-6">Create by ฝ่าย IT KME</p>
+<p class="text-center text-slate-500 text-[11px] py-8 font-medium tracking-wide">Created by ฝ่าย IT KME</p>
 
 </body>
 </html>
