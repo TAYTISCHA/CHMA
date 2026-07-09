@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ระบบตามล่าสายรหัส ตระกูล A</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          navy: {
+            950: '#0a1128',
+            900: '#0f1c4d',
+            800: '#132b6b',
+            700: '#1a3a8f',
+            600: '#2451b8',
+            100: '#e5eaf9',
+          },
+          gold: { 400: '#d9b64f', 500: '#c9a227' }
+        },
+        fontFamily: {
+          sans: ['"Noto Sans Thai"', 'ui-sans-serif', 'system-ui'],
+        }
+      }
+    }
+  }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Noto Sans Thai', sans-serif; }
+  .step-line::before {
+    content: '';
+    position: absolute;
+    left: 23px;
+    top: 48px;
+    bottom: -32px;
+    width: 2px;
+    background: #cbd5e1;
+  }
+  .step-line:last-child::before { display: none; }
+  .step-line.done::before { background: #c9a227; }
+  @keyframes pulse-slow { 0%,100%{opacity:1} 50%{opacity:.55} }
+  .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+</style>
+</head>
+<body class="bg-navy-950 min-h-screen text-slate-100">
+
+<!-- ================= LOGIN VIEW ================= -->
+<div id="loginView" class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-navy-700 to-navy-900 border border-gold-500/30 mb-4">
+        <span class="text-2xl font-extrabold text-gold-400">A</span>
+      </div>
+      <h1 class="text-xl font-bold tracking-wide">ระบบตามล่าสายรหัส</h1>
+      <p class="text-navy-100/60 text-sm mt-1">ตระกูล A · A1 – A6</p>
+    </div>
+
+    <form id="loginForm" class="bg-navy-900/70 border border-navy-700 rounded-2xl p-6 space-y-4 shadow-xl">
+      <div>
+        <label class="text-xs text-navy-100/60 mb-1 block">รหัสนักศึกษา</label>
+        <input id="loginStudentId" type="text" required
+          class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+      </div>
+      <div>
+        <label class="text-xs text-navy-100/60 mb-1 block">รหัสผ่าน</label>
+        <input id="loginPassword" type="password" required
+          class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
+      </div>
+      <p id="loginError" class="text-rose-400 text-xs hidden"></p>
+      <button type="submit" id="loginBtn"
+        class="w-full bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold rounded-lg py-2.5 text-sm transition">
+        เข้าสู่ระบบ
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= DASHBOARD VIEW ================= -->
+<div id="dashView" class="hidden max-w-2xl mx-auto px-4 py-8">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <p class="text-navy-100/50 text-xs">สวัสดี,</p>
+      <h1 id="dashNickname" class="text-lg font-bold"></h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="dashLineCode" class="px-3 py-1.5 rounded-full bg-gold-500 text-navy-950 font-extrabold text-sm"></span>
+      <button id="logoutBtn" class="text-xs text-navy-100/50 hover:text-white underline">ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <div id="stepsContainer" class="space-y-8"></div>
+
+  <p class="text-center text-navy-100/30 text-xs mt-10">อัปเดตอัตโนมัติหลังส่งภารกิจ · กดรีเฟรชเพื่อดูผลการตรวจล่าสุด</p>
+  <button id="refreshBtn" class="block mx-auto mt-2 text-xs text-gold-400 underline">รีเฟรชสถานะ</button>
+</div>
+
+<!-- ================= UPLOAD MODAL ================= -->
+<div id="uploadModal" class="hidden fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+  <div class="bg-navy-900 border border-navy-700 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6">
+    <h2 class="font-bold mb-4">ส่งภารกิจ ด่านที่ <span id="modalStep"></span></h2>
+
+    <label class="block mb-3">
+      <span class="text-xs text-navy-100/60">แนบรูปภาพภารกิจ</span>
+      <input id="imgInput" type="file" accept="image/*" capture="environment"
+        class="w-full mt-1 text-xs file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-navy-700 file:text-white text-navy-100/70" />
+    </label>
+    <img id="imgPreview" class="hidden w-full rounded-lg mb-3 max-h-56 object-cover border border-navy-700" />
+
+    <label class="block mb-4">
+      <span class="text-xs text-navy-100/60">ข้อความแนบ (ถ้ามี)</span>
+      <textarea id="msgInput" rows="2"
+        class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
+    </label>
+
+    <p id="uploadError" class="text-rose-400 text-xs mb-2 hidden"></p>
+    <div class="flex gap-2">
+      <button id="cancelUpload" class="flex-1 rounded-lg py-2.5 text-sm border border-navy-700 text-navy-100/70">ยกเลิก</button>
+      <button id="confirmUpload" class="flex-1 rounded-lg py-2.5 text-sm bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold">ส่งภารกิจ</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const STEP_LABELS = { active:'กำลังทำ', completed:'ผ่านแล้ว', locked:'ยังไม่ปลดล็อค', reviewing:'รอตรวจ' };
+
+let state = { token: null, currentStep: null };
+
+// ---------- persistence ----------
+function saveSession(token) { localStorage.setItem('a_family_token', token); }
+function loadSession() { return localStorage.getItem('a_family_token'); }
+function clearSession() { localStorage.removeItem('a_family_token'); }
+
+// ---------- image compression ----------
+function compressImage(file, maxWidth = 1280, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve({ base64: dataUrl.split(',')[1], mime: 'image/jpeg', dataUrl });
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ---------- login ----------
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  errEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ...';
+
+  try {
+    const res = await callApi('studentLogin', {
+      student_id: document.getElementById('loginStudentId').value.trim(),
+      password: document.getElementById('loginPassword').value
+    });
+    if (!res.success) throw new Error(res.error || 'เข้าสู่ระบบไม่สำเร็จ');
+    saveSession(res.token);
+    state.token = res.token;
+    await loadDashboard();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  clearSession();
+  location.reload();
+});
+
+document.getElementById('refreshBtn').addEventListener('click', loadDashboard);
+
+// ---------- dashboard ----------
+async function loadDashboard() {
+  const res = await callApi('getDashboard', { token: state.token });
+  if (!res.success) {
+    clearSession();
+    document.getElementById('loginView').classList.remove('hidden');
+    document.getElementById('dashView').classList.add('hidden');
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = res.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('dashView').classList.remove('hidden');
+  document.getElementById('dashNickname').textContent = res.nickname;
+  document.getElementById('dashLineCode').textContent = res.line_code;
+  state.currentStep = res.current_step;
+
+  renderSteps(res.steps);
+}
+
+function renderSteps(steps) {
+  const container = document.getElementById('stepsContainer');
+  container.innerHTML = '';
+
+  steps.forEach((s) => {
+    const isDone = s.status === 'completed';
+    const isActive = s.status === 'active';
+    const isReviewing = s.status === 'reviewing';
+    const isLocked = s.status === 'locked';
+
+    const dotClass = isDone ? 'bg-gold-500 text-navy-950'
+      : isActive ? 'bg-navy-600 text-white ring-4 ring-gold-500/30'
+      : isReviewing ? 'bg-amber-600 text-white'
+      : 'bg-navy-800 text-navy-100/40';
+
+    const card = document.createElement('div');
+    card.className = `relative step-line ${isDone ? 'done' : ''} pl-14`;
+
+    let bodyHtml = '';
+    if (isLocked) {
+      bodyHtml = `<p class="text-navy-100/40 text-sm">🔒 ทำด่านก่อนหน้าให้ผ่านก่อนนะ</p>`;
+    } else {
+      bodyHtml = `
+        <h3 class="font-bold text-white mb-1">${escapeHtml(s.task_title || '')}</h3>
+        <p class="text-navy-100/70 text-sm mb-3 whitespace-pre-line">${escapeHtml(s.task_desc || '')}</p>
+        <div class="text-xs px-3 py-2 rounded-lg mb-3 ${isDone ? 'bg-gold-500/10 border border-gold-500/30 text-gold-300' : 'bg-navy-800 text-navy-100/50'}">
+          💡 คำใบ้: ${escapeHtml(s.hint_text || '🔒 ยังไม่ปลดล็อค')}
+        </div>
+      `;
+
+      if (s.last_submission && s.last_submission.status === 'Rejected') {
+        bodyHtml += `<div class="text-xs px-3 py-2 rounded-lg mb-3 bg-rose-500/10 border border-rose-500/30 text-rose-300">
+          ❌ ถูกตีกลับ: ${escapeHtml(s.last_submission.reject_reason || 'ไม่ระบุเหตุผล')} — ส่งใหม่ได้เลย
+        </div>`;
+      }
+
+      if (isActive) {
+        bodyHtml += `<button data-step="${s.step}" class="submitBtn bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold text-sm rounded-lg px-4 py-2">
+          📤 อัปโหลดภารกิจ
+        </button>`;
+      } else if (isReviewing) {
+        bodyHtml += `<p class="text-amber-400 text-xs animate-pulse-slow">⏳ ส่งแล้ว รอรุ่นพี่ตรวจงาน...</p>`;
+      }
+    }
+
+    card.innerHTML = `
+      <div class="absolute left-0 top-0 w-11 h-11 rounded-full flex items-center justify-center font-bold ${dotClass}">
+        ${isDone ? '✓' : s.step}
+      </div>
+      <div class="bg-navy-900/60 border border-navy-700 rounded-xl p-4">
+        <span class="text-[10px] uppercase tracking-wider text-navy-100/40">${STEP_LABELS[s.status]}</span>
+        ${bodyHtml}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  document.querySelectorAll('.submitBtn').forEach(btn => {
+    btn.addEventListener('click', () => openUploadModal(btn.dataset.step));
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- upload modal ----------
+let pendingImage = null;
+
+function openUploadModal(step) {
+  document.getElementById('modalStep').textContent = step;
+  document.getElementById('imgInput').value = '';
+  document.getElementById('imgPreview').classList.add('hidden');
+  document.getElementById('msgInput').value = '';
+  document.getElementById('uploadError').classList.add('hidden');
+  pendingImage = null;
+  document.getElementById('uploadModal').dataset.step = step;
+  document.getElementById('uploadModal').classList.remove('hidden');
+}
+
+document.getElementById('cancelUpload').addEventListener('click', () => {
+  document.getElementById('uploadModal').classList.add('hidden');
+});
+
+document.getElementById('imgInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const compressed = await compressImage(file);
+  pendingImage = compressed;
+  const preview = document.getElementById('imgPreview');
+  preview.src = compressed.dataUrl;
+  preview.classList.remove('hidden');
+});
+
+document.getElementById('confirmUpload').addEventListener('click', async () => {
+  const step = document.getElementById('uploadModal').dataset.step;
+  const errEl = document.getElementById('uploadError');
+  const btn = document.getElementById('confirmUpload');
+
+  if (!pendingImage) {
+    errEl.textContent = 'กรุณาแนบรูปภาพก่อน';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+  try {
+    const res = await callApi('submitTask', {
+      token: state.token,
+      step: Number(step),
+      image_base64: pendingImage.base64,
+      mime_type: pendingImage.mime,
+      student_msg: document.getElementById('msgInput').value.trim()
+    });
+    if (!res.success) throw new Error(res.error || 'ส่งภารกิจไม่สำเร็จ');
+    document.getElementById('uploadModal').classList.add('hidden');
+    await loadDashboard();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'ส่งภารกิจ';
+  }
+});
+
+// ---------- boot ----------
+(async function boot() {
+  const token = loadSession();
+  if (token) {
+    state.token = token;
+    await loadDashboard();
+  }
+})();
+</script>
+</body>
+</html>
