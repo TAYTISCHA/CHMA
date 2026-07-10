@@ -235,9 +235,12 @@
           </select>
         </label>
         <label class="block">
-          <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide flex justify-between">ด่านที่ <span class="text-amber-600 ml-1">(ใส่ 0 เพื่อรันเลขอัตโนมัติ)</span></span>
-          <input id="missionStep" type="number" min="0" value="0"
-            class="w-full mt-1 glass-input rounded-xl px-3 py-2 text-sm font-data focus:ring-2 focus:ring-amber-400" />
+          <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide flex justify-between">สถานะด่าน</span>
+          <div class="mt-1 glass-input rounded-xl px-3 py-2 text-sm font-data text-ink-soft bg-black/5 flex items-center justify-between border-dashed">
+            <span id="stepDisplay" class="font-bold text-amber-700">รันเลขอัตโนมัติ 🚀</span>
+            <input id="missionStep" type="hidden" value="0" />
+            <button type="button" id="cancelEditBtn" class="hidden text-[10px] bg-rose-100 text-rose-600 px-2 py-0.5 rounded-lg font-bold hover:bg-rose-200 transition">ยกเลิกแก้</button>
+          </div>
         </label>
       </div>
       <label class="block mb-3">
@@ -691,10 +694,16 @@ function renderMissions(missions) {
     list.appendChild(row);
   });
 
+  // 💡 เมื่อกดปุ่มแก้ไข
   document.querySelectorAll('.editMissionBtn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('missionLineCode').value = btn.dataset.line;
       document.getElementById('missionStep').value = btn.dataset.step;
+      
+      // แสดงข้อความบอกว่ากำลังแก้ไข และปุ่มยกเลิก
+      document.getElementById('stepDisplay').textContent = `กำลังแก้ไขด่านที่ ${btn.dataset.step}`;
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+      
       document.getElementById('missionTitle').value = btn.dataset.title;
       document.getElementById('missionDesc').value = btn.dataset.desc;
       document.getElementById('missionHint').value = btn.dataset.hint;
@@ -702,10 +711,21 @@ function renderMissions(missions) {
     });
   });
 
+  // 💡 เมื่อกดปุ่มลบ
   document.querySelectorAll('.deleteMissionBtn').forEach(btn => {
     btn.addEventListener('click', () => deleteMission(btn.dataset.line, btn.dataset.step));
   });
 }
+
+// 💡 โค้ดสำหรับปุ่ม "ยกเลิกแก้"
+document.getElementById('cancelEditBtn').addEventListener('click', () => {
+  document.getElementById('missionStep').value = 0;
+  document.getElementById('stepDisplay').textContent = 'รันเลขอัตโนมัติ 🚀';
+  document.getElementById('cancelEditBtn').classList.add('hidden');
+  document.getElementById('missionTitle').value = '';
+  document.getElementById('missionDesc').value = '';
+  document.getElementById('missionHint').value = '';
+});
 
 document.getElementById('saveMissionBtn').addEventListener('click', async () => {
   const btn = document.getElementById('saveMissionBtn');
@@ -730,12 +750,13 @@ document.getElementById('saveMissionBtn').addEventListener('click', async () => 
     okEl.textContent = '✓ ' + (res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว!');
     okEl.classList.remove('hidden');
 
+    // 💡 รีเซ็ตฟอร์มกลับเป็นรันเลขอัตโนมัติ
     document.getElementById('missionTitle').value = '';
     document.getElementById('missionDesc').value = '';
     document.getElementById('missionHint').value = '';
-    
-    // 💡 รีเซ็ตค่าด่านเป็น 0 หลังจากบันทึกเสร็จ เผื่อพี่ๆ อยากกดบวกด่านใหม่ต่อเลย
-    document.getElementById('missionStep').value = 0; 
+    document.getElementById('missionStep').value = 0;
+    document.getElementById('stepDisplay').textContent = 'รันเลขอัตโนมัติ 🚀';
+    document.getElementById('cancelEditBtn').classList.add('hidden');
     
     await loadMissions();
   } catch (err) {
