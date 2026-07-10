@@ -10,127 +10,251 @@
     theme: {
       extend: {
         colors: {
-          navy: {
-            950: '#0a1128',
-            900: '#0f1c4d',
-            800: '#132b6b',
-            700: '#1a3a8f',
-            600: '#2451b8',
-            100: '#e5eaf9',
+          amber: {
+            950: '#22110a', 900: '#3a1d0d', 800: '#5c2c0f', 700: '#7c3a10',
+            600: '#c94e02', 500: '#e8620a', 400: '#ff8a1e', 300: '#ffb454', 200: '#ffd8a8', 100: '#ffe9cf'
           },
-          gold: { 400: '#d9b64f', 500: '#c9a227' }
+          bubble: { DEFAULT: '#ff9ecb', soft: '#ffd6e8' },
+          mint: { DEFAULT: '#3fbf82', soft: '#c9f3dd' },
+          paper: { DEFAULT: '#fdf5ea', deep: '#f6e6d0' },
+          ink: { DEFAULT: '#2b1a0f', soft: '#5c4632' }
         },
         fontFamily: {
+          display: ['Mitr', '"Noto Sans Thai"', 'ui-sans-serif'],
           sans: ['"Noto Sans Thai"', 'ui-sans-serif', 'system-ui'],
+          mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular']
         }
       }
     }
   }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
-  body { font-family: 'Noto Sans Thai', sans-serif; }
-  .step-line::before {
-    content: '';
-    position: absolute;
-    left: 23px;
-    top: 48px;
-    bottom: -32px;
-    width: 2px;
-    background: #cbd5e1;
+  :root{
+    --glass-fill: rgba(255,255,255,0.55);
+    --glass-fill-strong: rgba(255,255,255,0.76);
+    --glass-border: rgba(255,255,255,0.7);
+    --glass-shadow: 0 10px 30px rgba(200,78,2,0.12), 0 1px 0 rgba(255,255,255,0.7) inset;
   }
-  .step-line:last-child::before { display: none; }
-  .step-line.done::before { background: #c9a227; }
-  @keyframes pulse-slow { 0%,100%{opacity:1} 50%{opacity:.55} }
-  .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+  html, body { font-family: 'Noto Sans Thai', sans-serif; }
+  .font-display { font-family: 'Mitr', 'Noto Sans Thai', sans-serif; }
+  .font-data { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  body{
+    background:
+      radial-gradient(55% 45% at 10% -6%, rgba(255,158,203,0.30), transparent 60%),
+      radial-gradient(55% 45% at 108% 10%, rgba(255,138,30,0.30), transparent 60%),
+      radial-gradient(65% 55% at 50% 118%, rgba(255,180,84,0.30), transparent 60%),
+      linear-gradient(180deg, #fdf5ea 0%, #f9ecd9 55%, #f6e2c6 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  .confetti-bg{
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.55;
+    background-image:
+      radial-gradient(rgba(255,158,203,0.35) 2px, transparent 2px),
+      radial-gradient(rgba(124,58,16,0.14) 1.4px, transparent 1.4px);
+    background-size: 46px 46px, 24px 24px;
+    background-position: 0 0, 12px 12px;
+    -webkit-mask-image: radial-gradient(120% 120% at 50% 0%, black 0%, transparent 78%);
+    mask-image: radial-gradient(120% 120% at 50% 0%, black 0%, transparent 78%);
+  }
+  .blob{ position: fixed; border-radius: 999px; filter: blur(60px); z-index: 0; pointer-events:none; }
+
+  .glass{
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    backdrop-filter: blur(22px) saturate(150%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+  .glass-strong{
+    background: var(--glass-fill-strong);
+    -webkit-backdrop-filter: blur(26px) saturate(160%);
+    backdrop-filter: blur(26px) saturate(160%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+  .glass-input{
+    background: rgba(255,255,255,0.6);
+    border: 1.5px solid rgba(124,58,16,0.14);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .glass-input:focus{ background: rgba(255,255,255,0.88); }
+
+  .flame-btn{
+    background: linear-gradient(135deg, #ff8a1e 0%, #e8620a 60%, #c94e02 100%);
+    box-shadow: 0 10px 22px -8px rgba(200,78,2,0.6), inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .flame-btn:hover{ filter: brightness(1.06); transform: translateY(-1px); }
+  .flame-btn:active{ filter: brightness(0.97); transform: translateY(0); }
+
+  .sticker{
+    box-shadow: 0 4px 0 rgba(124,58,16,0.18), 0 8px 18px rgba(124,58,16,0.16);
+    border: 2.5px solid rgba(255,255,255,0.85);
+  }
+
+  @keyframes wiggle{
+    0%,100%{ transform: rotate(-3deg); }
+    50%{ transform: rotate(3deg); }
+  }
+  .mascot{ animation: wiggle 2.6s ease-in-out infinite; transform-origin: 50% 85%; }
+
+  @keyframes bounce-soft{
+    0%,100%{ transform: translateY(0); }
+    50%{ transform: translateY(-3px); }
+  }
+  .bounce-soft{ animation: bounce-soft 1.8s ease-in-out infinite; }
+
+  @keyframes bubble-rise{
+    0%{ transform: translateY(0) scale(0.6); opacity: 0; }
+    15%{ opacity: 0.9; }
+    100%{ transform: translateY(-40px) scale(1); opacity: 0; }
+  }
+  .bubble-pop{ animation: bubble-rise 2.4s ease-in infinite; }
+  .bubble-pop.b2{ animation-delay: 0.6s; }
+  .bubble-pop.b3{ animation-delay: 1.3s; }
+
+  @keyframes pop-in{
+    0%{ transform: scale(0.7); opacity: 0; }
+    70%{ transform: scale(1.08); opacity: 1; }
+    100%{ transform: scale(1); }
+  }
+  .pop-in{ animation: pop-in 0.4s ease-out; }
+
+  .bond-line{
+    background-image: radial-gradient(circle, rgba(232,98,10,0.35) 1.8px, transparent 1.8px);
+    background-size: 10px 12px;
+    background-repeat: repeat-y;
+    background-position: center;
+  }
+  .bond-line.done{
+    background-image: radial-gradient(circle, rgba(255,158,203,0.7) 1.8px, transparent 1.8px);
+  }
+
+  ::-webkit-scrollbar{ width: 10px; }
+  ::-webkit-scrollbar-thumb{ background: rgba(124,58,16,0.22); border-radius: 999px; }
 </style>
 </head>
-<body class="bg-navy-950 min-h-screen text-slate-100">
+<body class="text-ink min-h-screen relative">
+
+<div class="confetti-bg"></div>
+<div class="blob w-[400px] h-[400px] -top-28 -left-20 bg-bubble-soft/60"></div>
+<div class="blob w-[380px] h-[380px] top-1/3 -right-28 bg-amber-300/50"></div>
+<div class="blob w-[440px] h-[440px] -bottom-36 left-1/4 bg-amber-200/60"></div>
 
 <!-- ================= LOGIN VIEW ================= -->
-<div id="loginView" class="min-h-screen flex items-center justify-center px-4">
+<div id="loginView" class="min-h-screen flex items-center justify-center px-4 relative z-10">
   <div class="w-full max-w-sm">
-    <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-navy-700 to-navy-900 border border-gold-500/30 mb-4">
-        <span class="text-2xl font-extrabold text-gold-400">A</span>
+
+    <div class="glass-strong rounded-[28px] p-7 pt-8">
+      <div class="flex justify-center mb-2">
+        <svg class="mascot" width="76" height="82" viewBox="0 0 76 82" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30 6H46V26L61 60C64 67 59 73 52 73H24C17 73 12 67 15 60L30 26V6Z" stroke="#c94e02" stroke-width="3" stroke-linejoin="round" fill="rgba(255,255,255,0.55)"/>
+          <path d="M18 52H58L55 60C53 67 48 70 43 70H33C28 70 23 67 21 60L18 52Z" fill="url(#liquidGrad)"/>
+          <defs>
+            <linearGradient id="liquidGrad" x1="18" y1="52" x2="58" y2="70" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#ffb454"/>
+              <stop offset="1" stop-color="#e8620a"/>
+            </linearGradient>
+          </defs>
+          <line x1="26" y1="6" x2="50" y2="6" stroke="#c94e02" stroke-width="3" stroke-linecap="round"/>
+          <!-- cute face -->
+          <circle cx="31" cy="61" r="3.4" fill="#2b1a0f"/>
+          <circle cx="45" cy="61" r="3.4" fill="#2b1a0f"/>
+          <circle cx="32.2" cy="59.7" r="1" fill="white"/>
+          <circle cx="46.2" cy="59.7" r="1" fill="white"/>
+          <path d="M34 66C36 68 40 68 42 66" stroke="#2b1a0f" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          <circle cx="24" cy="63" r="2.6" fill="#ff9ecb" opacity="0.75"/>
+          <circle cx="52" cy="63" r="2.6" fill="#ff9ecb" opacity="0.75"/>
+          <circle class="bubble-pop" cx="34" cy="46" r="2" fill="#ffe9cf"/>
+          <circle class="bubble-pop b2" cx="42" cy="49" r="1.5" fill="#ffe9cf"/>
+          <circle class="bubble-pop b3" cx="38" cy="44" r="1.7" fill="#ffe9cf"/>
+        </svg>
       </div>
-      <h1 class="text-xl font-bold tracking-wide">ระบบตามล่าสายรหัส</h1>
-      <p class="text-navy-100/60 text-sm mt-1">ตระกูล A · A1 – A6</p>
+      <div class="text-center mb-6">
+        <h1 class="font-display text-2xl font-bold tracking-tight bg-gradient-to-r from-amber-600 via-amber-500 to-bubble bg-clip-text text-transparent">ตามล่าสายรหัส 🧪</h1>
+        <p class="text-ink-soft text-sm mt-1 font-medium">ตระกูล A · A1 – A6 ✨</p>
+      </div>
+
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="text-[11px] font-semibold text-ink-soft mb-1 block">🎓 รหัสนักศึกษา</label>
+          <input id="loginStudentId" type="text" required placeholder="กรอกรหัสนักศึกษาของน้อง"
+            class="w-full glass-input rounded-2xl px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/50 focus:ring-2 focus:ring-bubble transition" />
+        </div>
+        <div>
+          <label class="text-[11px] font-semibold text-ink-soft mb-1 block">🔑 รหัสผ่าน</label>
+          <input id="loginPassword" type="password" required placeholder="••••••••"
+            class="w-full glass-input rounded-2xl px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/50 focus:ring-2 focus:ring-bubble transition" />
+        </div>
+        <p id="loginError" class="text-rose-600 text-xs hidden font-medium"></p>
+        <button type="submit" id="loginBtn"
+          class="w-full flame-btn text-white font-bold rounded-2xl py-2.5 text-sm transition font-display tracking-wide">
+          เข้าสู่ระบบ 🚀
+        </button>
+      </form>
     </div>
 
-    <form id="loginForm" class="bg-navy-900/70 border border-navy-700 rounded-2xl p-6 space-y-4 shadow-xl">
-      <div>
-        <label class="text-xs text-navy-100/60 mb-1 block">รหัสนักศึกษา</label>
-        <input id="loginStudentId" type="text" required
-          class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
-      </div>
-      <div>
-        <label class="text-xs text-navy-100/60 mb-1 block">รหัสผ่าน</label>
-        <input id="loginPassword" type="password" required
-          class="w-full bg-navy-950 border border-navy-700 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60" />
-      </div>
-      <p id="loginError" class="text-rose-400 text-xs hidden"></p>
-      <button type="submit" id="loginBtn"
-        class="w-full bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold rounded-lg py-2.5 text-sm transition">
-        เข้าสู่ระบบ
-      </button>
-    </form>
-
-    <a href="/admin" class="mt-4 flex items-center justify-center gap-1.5 text-xs text-navy-100/40 hover:text-gold-400 transition">
+    <a href="/admin" class="mt-4 flex items-center justify-center gap-1.5 text-xs text-ink-soft/70 hover:text-amber-700 transition">
       🛡️ เข้าสู่ระบบสำหรับรุ่นพี่ / แอดมิน
     </a>
   </div>
 </div>
 
 <!-- ================= DASHBOARD VIEW ================= -->
-<div id="dashView" class="hidden max-w-2xl mx-auto px-4 py-8">
-  <div class="flex items-center justify-between mb-6">
-    <div>
-      <p class="text-navy-100/50 text-xs">สวัสดี,</p>
-      <h1 id="dashNickname" class="text-lg font-bold"></h1>
+<div id="dashView" class="hidden max-w-2xl mx-auto px-4 py-8 relative z-10">
+  <div class="glass-strong rounded-3xl p-4 flex items-center justify-between mb-7">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl flame-btn flex items-center justify-center text-lg sticker flex-shrink-0">🧪</div>
+      <div>
+        <p class="text-ink-soft text-xs">สวัสดีน้อง~</p>
+        <h1 id="dashNickname" class="text-lg font-display font-bold text-ink"></h1>
+      </div>
     </div>
-    <div class="flex items-center gap-2">
-      <span id="dashLineCode" class="px-3 py-1.5 rounded-full bg-gold-500 text-navy-950 font-extrabold text-sm"></span>
-      <button id="logoutBtn" class="text-xs text-navy-100/50 hover:text-white underline">ออกจากระบบ</button>
+    <div class="flex flex-col items-end gap-1.5">
+      <span id="dashLineCode" class="px-3 py-1 rounded-full flame-btn text-white font-display font-bold text-sm sticker"></span>
+      <button id="logoutBtn" class="text-[11px] text-ink-soft hover:text-amber-700 underline underline-offset-2">ออกจากระบบ</button>
     </div>
   </div>
 
-  <div id="stepsContainer" class="space-y-8"></div>
+  <div id="stepsContainer" class="space-y-2"></div>
 
-  <p class="text-center text-navy-100/30 text-xs mt-10">อัปเดตอัตโนมัติหลังส่งภารกิจ · กดรีเฟรชเพื่อดูผลการตรวจล่าสุด</p>
-  <button id="refreshBtn" class="block mx-auto mt-2 text-xs text-gold-400 underline">รีเฟรชสถานะ</button>
+  <p class="text-center text-ink-soft/60 text-xs mt-8">✨ อัปเดตอัตโนมัติหลังส่งภารกิจ · กดรีเฟรชเพื่อดูผลตรวจล่าสุด</p>
+  <button id="refreshBtn" class="block mx-auto mt-2 text-xs text-amber-700 font-semibold underline underline-offset-2">↻ รีเฟรชสถานะ</button>
 </div>
 
 <!-- ================= UPLOAD MODAL ================= -->
-<div id="uploadModal" class="hidden fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-  <div class="bg-navy-900 border border-navy-700 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6">
-    <h2 class="font-bold mb-4">ส่งภารกิจ ด่านที่ <span id="modalStep"></span></h2>
+<div id="uploadModal" class="hidden fixed inset-0 bg-ink/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+  <div class="glass-strong rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6">
+    <h2 class="font-display font-bold mb-4 text-ink flex items-center gap-1.5">📮 ส่งภารกิจ ด่านที่ <span id="modalStep" class="text-amber-600"></span></h2>
 
     <label class="block mb-3">
-      <span class="text-xs text-navy-100/60">แนบรูปภาพภารกิจ</span>
+      <span class="text-[11px] font-semibold text-ink-soft">📸 แนบรูปภาพภารกิจ</span>
       <input id="imgInput" type="file" accept="image/*" capture="environment"
-        class="w-full mt-1 text-xs file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-navy-700 file:text-white text-navy-100/70" />
+        class="w-full mt-1.5 text-xs file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:font-semibold file:bg-amber-400/80 file:text-white text-ink-soft" />
     </label>
-    <img id="imgPreview" class="hidden w-full rounded-lg mb-3 max-h-56 object-cover border border-navy-700" />
+    <img id="imgPreview" class="hidden w-full rounded-2xl mb-3 max-h-56 object-cover sticker" />
 
     <label class="block mb-4">
-      <span class="text-xs text-navy-100/60">ข้อความแนบ (ถ้ามี)</span>
-      <textarea id="msgInput" rows="2"
-        class="w-full mt-1 bg-navy-950 border border-navy-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/60"></textarea>
+      <span class="text-[11px] font-semibold text-ink-soft">💌 ข้อความแนบ (ถ้ามี)</span>
+      <textarea id="msgInput" rows="2" placeholder="เล่าให้พี่ฟังหน่อยว่าไปเจออะไรมา~"
+        class="w-full mt-1.5 glass-input rounded-2xl px-3 py-2 text-sm focus:ring-2 focus:ring-bubble"></textarea>
     </label>
 
-    <p id="uploadError" class="text-rose-400 text-xs mb-2 hidden"></p>
+    <p id="uploadError" class="text-rose-600 text-xs mb-2 hidden font-medium"></p>
     <div class="flex gap-2">
-      <button id="cancelUpload" class="flex-1 rounded-lg py-2.5 text-sm border border-navy-700 text-navy-100/70">ยกเลิก</button>
-      <button id="confirmUpload" class="flex-1 rounded-lg py-2.5 text-sm bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold">ส่งภารกิจ</button>
+      <button id="cancelUpload" class="flex-1 rounded-2xl py-2.5 text-sm border border-ink/15 text-ink-soft font-medium hover:bg-white/40 transition">ยกเลิก</button>
+      <button id="confirmUpload" class="flex-1 rounded-2xl py-2.5 text-sm flame-btn text-white font-bold transition">ส่งภารกิจ 🚀</button>
     </div>
   </div>
 </div>
 
 <script src="config.js"></script>
 <script>
-const STEP_LABELS = { active:'กำลังทำ', completed:'ผ่านแล้ว', locked:'ยังไม่ปลดล็อค', reviewing:'รอตรวจ' };
+const STEP_LABELS = { active:'กำลังทำ ✏️', completed:'ผ่านแล้ว 🎉', locked:'ยังไม่ปลดล็อค 🔒', reviewing:'รอตรวจ ⏳' };
 
 let state = { token: null, currentStep: null };
 
@@ -181,10 +305,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     state.token = res.token;
     await loadDashboard();
   } catch (err) {
-    errEl.textContent = err.message;
+    errEl.textContent = '⚠ ' + err.message;
     errEl.classList.remove('hidden');
   } finally {
-    btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+    btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ 🚀';
   }
 });
 
@@ -203,7 +327,7 @@ async function loadDashboard() {
     document.getElementById('loginView').classList.remove('hidden');
     document.getElementById('dashView').classList.add('hidden');
     const errEl = document.getElementById('loginError');
-    errEl.textContent = res.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
+    errEl.textContent = '⚠ ' + (res.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
     errEl.classList.remove('hidden');
     return;
   }
@@ -221,57 +345,66 @@ function renderSteps(steps) {
   const container = document.getElementById('stepsContainer');
   container.innerHTML = '';
 
-  steps.forEach((s) => {
+  steps.forEach((s, idx) => {
     const isDone = s.status === 'completed';
     const isActive = s.status === 'active';
     const isReviewing = s.status === 'reviewing';
     const isLocked = s.status === 'locked';
+    const isLast = idx === steps.length - 1;
 
-    const dotClass = isDone ? 'bg-gold-500 text-navy-950'
-      : isActive ? 'bg-navy-600 text-white ring-4 ring-gold-500/30'
-      : isReviewing ? 'bg-amber-600 text-white'
-      : 'bg-navy-800 text-navy-100/40';
+    const dotClass = isDone ? 'flame-btn text-white'
+      : isActive ? 'bg-white text-amber-600 ring-4 ring-bubble/50 bounce-soft'
+      : isReviewing ? 'bg-amber-300 text-amber-900'
+      : 'bg-white/60 text-ink-soft/50';
 
-    const card = document.createElement('div');
-    card.className = `relative step-line ${isDone ? 'done' : ''} pl-14`;
+    const badgeClass = isDone ? 'bg-amber-500/15 text-amber-700'
+      : isActive ? 'bg-bubble-soft text-bubble'
+      : isReviewing ? 'bg-amber-300/25 text-amber-700'
+      : 'bg-ink/5 text-ink-soft/50';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'relative flex gap-3.5';
 
     let bodyHtml = '';
     if (isLocked) {
-      bodyHtml = `<p class="text-navy-100/40 text-sm">🔒 ทำด่านก่อนหน้าให้ผ่านก่อนนะ</p>`;
+      bodyHtml = `<p class="text-ink-soft/60 text-sm">🔒 ทำด่านก่อนหน้าให้ผ่านก่อนนะ~</p>`;
     } else {
       bodyHtml = `
-        <h3 class="font-bold text-white mb-1">${escapeHtml(s.task_title || '')}</h3>
-        <p class="text-navy-100/70 text-sm mb-3 whitespace-pre-line">${escapeHtml(s.task_desc || '')}</p>
-        <div class="text-xs px-3 py-2 rounded-lg mb-3 ${isDone ? 'bg-gold-500/10 border border-gold-500/30 text-gold-300' : 'bg-navy-800 text-navy-100/50'}">
+        <h3 class="font-display font-bold text-ink mb-1">${escapeHtml(s.task_title || '')}</h3>
+        <p class="text-ink-soft text-sm mb-3 whitespace-pre-line">${escapeHtml(s.task_desc || '')}</p>
+        <div class="text-xs px-3 py-2 rounded-xl mb-3 ${isDone ? 'bg-amber-400/15 border border-amber-400/30 text-amber-700' : 'bg-ink/5 text-ink-soft'}">
           💡 คำใบ้: ${escapeHtml(s.hint_text || '🔒 ยังไม่ปลดล็อค')}
         </div>
       `;
 
       if (s.last_submission && s.last_submission.status === 'Rejected') {
-        bodyHtml += `<div class="text-xs px-3 py-2 rounded-lg mb-3 bg-rose-500/10 border border-rose-500/30 text-rose-300">
-          ❌ ถูกตีกลับ: ${escapeHtml(s.last_submission.reject_reason || 'ไม่ระบุเหตุผล')} — ส่งใหม่ได้เลย
+        bodyHtml += `<div class="text-xs px-3 py-2 rounded-xl mb-3 bg-rose-500/10 border border-rose-400/30 text-rose-600">
+          🙈 ถูกตีกลับ: ${escapeHtml(s.last_submission.reject_reason || 'ไม่ระบุเหตุผล')} — ลองใหม่ได้เลยน้า
         </div>`;
       }
 
       if (isActive) {
-        bodyHtml += `<button data-step="${s.step}" class="submitBtn bg-gold-500 hover:bg-gold-400 text-navy-950 font-bold text-sm rounded-lg px-4 py-2">
-          📤 อัปโหลดภารกิจ
+        bodyHtml += `<button data-step="${s.step}" class="submitBtn flame-btn text-white font-display font-bold text-sm rounded-xl px-4 py-2 transition">
+          📮 อัปโหลดภารกิจ
         </button>`;
       } else if (isReviewing) {
-        bodyHtml += `<p class="text-amber-400 text-xs animate-pulse-slow">⏳ ส่งแล้ว รอรุ่นพี่ตรวจงาน...</p>`;
+        bodyHtml += `<p class="text-amber-700 text-xs font-medium">⏳ ส่งแล้ว รอรุ่นพี่ตรวจงานอยู่นะ~</p>`;
       }
     }
 
-    card.innerHTML = `
-      <div class="absolute left-0 top-0 w-11 h-11 rounded-full flex items-center justify-center font-bold ${dotClass}">
-        ${isDone ? '✓' : s.step}
+    wrap.innerHTML = `
+      <div class="flex flex-col items-center flex-shrink-0">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center font-display font-bold sticker ${dotClass} ${isDone ? 'pop-in' : ''}">
+          ${isDone ? '⭐' : s.step}
+        </div>
+        ${!isLast ? `<div class="w-1 flex-1 min-h-[28px] my-1 bond-line ${isDone ? 'done' : ''}"></div>` : ''}
       </div>
-      <div class="bg-navy-900/60 border border-navy-700 rounded-xl p-4">
-        <span class="text-[10px] uppercase tracking-wider text-navy-100/40">${STEP_LABELS[s.status]}</span>
+      <div class="glass rounded-2xl p-4 flex-1 mb-3">
+        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block mb-2 ${badgeClass}">${STEP_LABELS[s.status]}</span>
         ${bodyHtml}
       </div>
     `;
-    container.appendChild(card);
+    container.appendChild(wrap);
   });
 
   document.querySelectorAll('.submitBtn').forEach(btn => {
@@ -319,7 +452,7 @@ document.getElementById('confirmUpload').addEventListener('click', async () => {
   const btn = document.getElementById('confirmUpload');
 
   if (!pendingImage) {
-    errEl.textContent = 'กรุณาแนบรูปภาพก่อน';
+    errEl.textContent = 'กรุณาแนบรูปภาพก่อนน้า 📸';
     errEl.classList.remove('hidden');
     return;
   }
@@ -337,10 +470,10 @@ document.getElementById('confirmUpload').addEventListener('click', async () => {
     document.getElementById('uploadModal').classList.add('hidden');
     await loadDashboard();
   } catch (err) {
-    errEl.textContent = err.message;
+    errEl.textContent = '⚠ ' + err.message;
     errEl.classList.remove('hidden');
   } finally {
-    btn.disabled = false; btn.textContent = 'ส่งภารกิจ';
+    btn.disabled = false; btn.textContent = 'ส่งภารกิจ 🚀';
   }
 });
 
@@ -353,7 +486,7 @@ document.getElementById('confirmUpload').addEventListener('click', async () => {
   }
 })();
 </script>
-<p class="text-center text-navy-100/20 text-[11px] py-6">Create by ฝ่าย IT KME</p>
+<p class="text-center text-ink-soft/40 text-[11px] py-6 relative z-10">Create by ฝ่าย IT KME 🧪</p>
 
 </body>
 </html>
