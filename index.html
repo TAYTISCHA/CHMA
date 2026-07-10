@@ -225,7 +225,7 @@
 
 <div id="uploadModal" class="hidden fixed inset-0 bg-ink/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
   <div class="glass-strong rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6">
-    <h2 class="font-display font-bold mb-4 text-ink flex items-center gap-1.5">📮 ส่งภารกิจ ด่านที่ <span id="modalStep" class="text-amber-600"></span></h2>
+    <h2 class="font-display font-bold mb-4 text-ink flex items-center gap-1.5">📮 ส่งภารกิจ <span id="modalStep" class="text-amber-600"></span></h2>
 
     <label class="block mb-3">
       <span class="text-[11px] font-semibold text-ink-soft">📸 แนบรูปภาพภารกิจ</span>
@@ -347,6 +347,7 @@ function renderSteps(steps) {
     const isReviewing = s.status === 'reviewing';
     const isLocked = s.status === 'locked';
     const isLast = idx === steps.length - 1;
+    const isAllMission = s.line_code === 'ALL';
 
     const dotClass = isDone ? 'flame-btn text-white'
       : isActive ? 'bg-white text-amber-600 ring-4 ring-bubble/50 bounce-soft'
@@ -364,7 +365,7 @@ function renderSteps(steps) {
     let bodyHtml = '';
     
     // 💡 การสร้างป้ายกำกับภารกิจส่วนกลาง vs ภารกิจสายรหัส
-    const missionTypeBadge = s.line_code === 'ALL' 
+    const missionTypeBadge = isAllMission
       ? `<span class="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center ml-2">ภารกิจส่วนกลาง 🌐</span>`
       : `<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center ml-2">ภารกิจสายรหัส 🧪</span>`;
 
@@ -389,7 +390,8 @@ function renderSteps(steps) {
       }
 
       if (isActive) {
-        bodyHtml += `<button data-step="${s.step}" class="submitBtn flame-btn text-white font-display font-bold text-sm rounded-xl px-4 py-2 transition">
+        // 💡 แอบแนบ line_code ไปกับปุ่มด้วย จะได้เอาไปเช็กเพื่อแสดงข้อความใน Modal ถูกต้อง
+        bodyHtml += `<button data-step="${s.step}" data-line="${escapeHtml(s.line_code || '')}" class="submitBtn flame-btn text-white font-display font-bold text-sm rounded-xl px-4 py-2 transition">
           📮 อัปโหลดภารกิจ
         </button>`;
       } else if (isReviewing) {
@@ -397,10 +399,13 @@ function renderSteps(steps) {
       }
     }
 
+    // 💡 การแสดงไอคอนในวงกลม: ถ้าผ่านแล้วให้แสดง ⭐ ถ้าเป็นสาย ALL ให้แสดง 🌐 ถ้าเป็นปกติให้แสดงตัวเลข
+    const stepDisplayContent = isDone ? '⭐' : (isAllMission ? '🌐' : s.step);
+
     wrap.innerHTML = `
       <div class="flex flex-col items-center flex-shrink-0">
         <div class="w-11 h-11 rounded-2xl flex items-center justify-center font-display font-bold sticker ${dotClass} ${isDone ? 'pop-in' : ''}">
-          ${isDone ? '⭐' : (s.line_code === 'ALL' ? '🌐' : s.step)}
+          ${stepDisplayContent}
         </div>
         ${!isLast ? `<div class="w-1 flex-1 min-h-[28px] my-1 bond-line ${isDone ? 'done' : ''}"></div>` : ''}
       </div>
@@ -413,7 +418,7 @@ function renderSteps(steps) {
   });
 
   document.querySelectorAll('.submitBtn').forEach(btn => {
-    btn.addEventListener('click', () => openUploadModal(btn.dataset.step));
+    btn.addEventListener('click', () => openUploadModal(btn.dataset.step, btn.dataset.line));
   });
 }
 
@@ -426,8 +431,10 @@ function escapeHtml(str) {
 // ---------- upload modal ----------
 let pendingImage = null;
 
-function openUploadModal(step) {
-  document.getElementById('modalStep').textContent = step;
+function openUploadModal(step, lineCode) {
+  // 💡 เช็กข้อความ Modal ถ่าเป็น ALL ให้แสดง "ส่วนกลาง 🌐" ถ้าปกติแสดง "ด่านที่ X"
+  document.getElementById('modalStep').textContent = lineCode === 'ALL' ? 'ส่วนกลาง 🌐' : `ด่านที่ ${step}`;
+  
   document.getElementById('imgInput').value = '';
   document.getElementById('imgPreview').classList.add('hidden');
   document.getElementById('msgInput').value = '';
