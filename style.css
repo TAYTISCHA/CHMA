@@ -1,1 +1,105 @@
+:root{
+  --glass-fill: rgba(255,255,255,0.55);
+  --glass-fill-strong: rgba(255,255,255,0.76);
+  --glass-border: rgba(255,255,255,0.7);
+  --glass-shadow: 0 10px 30px rgba(200,78,2,0.12), 0 1px 0 rgba(255,255,255,0.7) inset;
+}
+html, body { font-family: 'Noto Sans Thai', sans-serif; }
+.font-display { font-family: 'Mitr', 'Noto Sans Thai', sans-serif; }
+.font-data { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
+body{
+  background:
+    radial-gradient(55% 45% at 10% -6%, rgba(255,158,203,0.30), transparent 60%),
+    radial-gradient(55% 45% at 108% 10%, rgba(255,138,30,0.30), transparent 60%),
+    radial-gradient(65% 55% at 50% 118%, rgba(255,180,84,0.30), transparent 60%),
+    linear-gradient(180deg, #fdf5ea 0%, #f9ecd9 55%, #f6e2c6 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+.confetti-bg{
+  position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.55;
+  background-image:
+    radial-gradient(rgba(255,158,203,0.35) 2px, transparent 2px),
+    radial-gradient(rgba(124,58,16,0.14) 1.4px, transparent 1.4px);
+  background-size: 46px 46px, 24px 24px;
+  background-position: 0 0, 12px 12px;
+  -webkit-mask-image: radial-gradient(120% 120% at 50% 0%, black 0%, transparent 78%);
+  mask-image: radial-gradient(120% 120% at 50% 0%, black 0%, transparent 78%);
+}
+.blob{ position: fixed; border-radius: 999px; filter: blur(60px); z-index: 0; pointer-events:none; }
+
+.glass{
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.glass-strong{
+  background: var(--glass-fill-strong);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  backdrop-filter: blur(26px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.glass-input{
+  background: rgba(255,255,255,0.6);
+  border: 1.5px solid rgba(124,58,16,0.14);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.glass-input:focus{ background: rgba(255,255,255,0.88); }
+
+.flame-btn{
+  background: linear-gradient(135deg, #ff8a1e 0%, #e8620a 60%, #c94e02 100%);
+  box-shadow: 0 10px 22px -8px rgba(200,78,2,0.6), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+.flame-btn:hover{ filter: brightness(1.06); transform: translateY(-1px); }
+.flame-btn:active{ filter: brightness(0.97); transform: translateY(0); }
+
+.sticker{
+  box-shadow: 0 4px 0 rgba(124,58,16,0.18), 0 8px 18px rgba(124,58,16,0.16);
+  border: 2.5px solid rgba(255,255,255,0.85);
+}
+
+@keyframes wiggle{
+  0%,100%{ transform: rotate(-3deg); }
+  50%{ transform: rotate(3deg); }
+}
+.mascot{ animation: wiggle 2.6s ease-in-out infinite; transform-origin: 50% 85%; }
+
+@keyframes bounce-soft{
+  0%,100%{ transform: translateY(0); }
+  50%{ transform: translateY(-3px); }
+}
+.bounce-soft{ animation: bounce-soft 1.8s ease-in-out infinite; }
+
+@keyframes bubble-rise{
+  0%{ transform: translateY(0) scale(0.6); opacity: 0; }
+  15%{ opacity: 0.9; }
+  100%{ transform: translateY(-40px) scale(1); opacity: 0; }
+}
+.bubble-pop{ animation: bubble-rise 2.4s ease-in infinite; }
+.bubble-pop.b2{ animation-delay: 0.6s; }
+.bubble-pop.b3{ animation-delay: 1.3s; }
+
+@keyframes pop-in{
+  0%{ transform: scale(0.7); opacity: 0; }
+  70%{ transform: scale(1.08); opacity: 1; }
+  100%{ transform: scale(1); }
+}
+.pop-in{ animation: pop-in 0.4s ease-out; }
+
+.bond-line{
+  background-image: radial-gradient(circle, rgba(232,98,10,0.35) 1.8px, transparent 1.8px);
+  background-size: 10px 12px;
+  background-repeat: repeat-y;
+  background-position: center;
+}
+.bond-line.done{
+  background-image: radial-gradient(circle, rgba(255,158,203,0.7) 1.8px, transparent 1.8px);
+}
+
+::-webkit-scrollbar{ width: 10px; }
+::-webkit-scrollbar-thumb{ background: rgba(124,58,16,0.22); border-radius: 999px; }
