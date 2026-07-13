@@ -83,6 +83,7 @@ async function loadDashboard() {
   state.currentStep = res.current_step;
 
   renderSteps(res.steps);
+  checkAnnouncements('mine');
 }
 
 function renderSteps(steps) {
@@ -237,17 +238,7 @@ document.getElementById('confirmUpload').addEventListener('click', async () => {
   }
 });
 
-// ---------- boot ----------
-(async function boot() {
-  const token = loadSession();
-  if (token) {
-    state.token = token;
-    await loadDashboard();
-  }
-})();
-
-
-/* ================= ANNOUNCEMENTS (เพิ่มเข้า app.js ฝั่งนักศึกษา) ================= */
+/* ================= ANNOUNCEMENTS ================= */
 
 const ANNOUNCE_SEEN_KEY = 'a_family_announce_seen';
 
@@ -330,25 +321,13 @@ document.getElementById('announceBell').addEventListener('click', () => {
   document.getElementById('announceModal').classList.remove('hidden');
 });
 
-/* -----------------------------------------------------------------------
-   วิธีเรียกใช้ (ต้องแก้ 2 จุดใน app.js เดิม):
-
-   1) ในฟังก์ชัน boot() ท้ายไฟล์ — ถ้ายังไม่มี token (ยังไม่ login)
-      ให้เรียก checkAnnouncements('public') เพื่อโชว์ประกาศสาธารณะบนหน้า login
-
-        (async function boot() {
-          const token = loadSession();
-          if (token) {
-            state.token = token;
-            await loadDashboard();
-          } else {
-            checkAnnouncements('public');   // ⬅️ เพิ่มบรรทัดนี้
-          }
-        })();
-
-   2) ในฟังก์ชัน loadDashboard() หลังบรรทัด renderSteps(res.steps);
-      ให้เรียก checkAnnouncements('mine') เพื่อโชว์ประกาศของสายตัวเองทุกครั้งที่เข้าหน้าหลัก
-
-        renderSteps(res.steps);
-        checkAnnouncements('mine');   // ⬅️ เพิ่มบรรทัดนี้
------------------------------------------------------------------------ */
+// ---------- boot ----------
+(async function boot() {
+  const token = loadSession();
+  if (token) {
+    state.token = token;
+    await loadDashboard();
+  } else {
+    checkAnnouncements('public');
+  }
+})();
