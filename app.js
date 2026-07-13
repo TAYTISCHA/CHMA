@@ -26,10 +26,14 @@ const toDriveThumbnail = (url, size = 1000) => url?.match(/[-\w]{20,}/) ? `https
 const fileToBase64 = file => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = e => rej(e); r.readAsDataURL(file); });
 
 // ==========================================
-// 2. AUTHENTICATION (LOGIN / LOGOUT)
+// 2. AUTHENTICATION (STUDENT LOGIN)
 // ==========================================
 on('loginForm', 'submit', async e => {
   e.preventDefault();
+  
+  // 🛡️ Guard Clause: ถ้าไม่ใช่หน้านักศึกษา (ไม่มีช่องรหัสนักศึกษา) ให้หยุดทำงานทันที
+  if (!$('loginStudentId') || !$('loginPassword')) return;
+
   const btn = $('loginBtn');
   toggle('loginError', false);
   btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ...';
@@ -112,7 +116,7 @@ function renderSteps(steps) {
 }
 
 // ==========================================
-// 4. MISSION UPLOAD MANAGEMENT (Event Delegation)
+// 4. MISSION UPLOAD MANAGEMENT
 // ==========================================
 on('stepsContainer', 'click', e => {
   const btn = e.target.closest('button');
@@ -168,7 +172,7 @@ on('confirmUpload', 'click', async () => {
 });
 
 // ==========================================
-// 5. ANNOUNCEMENTS POPUP LOGIC
+// 5. ANNOUNCEMENTS POPUP
 // ==========================================
 const STUDENT_ANNOUNCE_SEEN_KEY = 'a_family_student_announce_seen';
 const getSeenIds = () => JSON.parse(localStorage.getItem(STUDENT_ANNOUNCE_SEEN_KEY) || '[]');
@@ -198,7 +202,7 @@ on('announceOkBtn', 'click', () => {
 });
 
 // ==========================================
-// 6. INITIALIZATION (BOOT)
+// 6. INITIALIZATION
 // ==========================================
 (async () => {
   await switchView(!!state.token);
