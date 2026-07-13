@@ -245,3 +245,110 @@ document.getElementById('confirmUpload').addEventListener('click', async () => {
     await loadDashboard();
   }
 })();
+
+
+/* ================= ANNOUNCEMENTS (เพิ่มเข้า app.js ฝั่งนักศึกษา) ================= */
+
+const ANNOUNCE_SEEN_KEY = 'a_family_announce_seen';
+
+function getSeenAnnounceIds() {
+  try { return JSON.parse(localStorage.getItem(ANNOUNCE_SEEN_KEY)) || []; }
+  catch (e) { return []; }
+}
+function markAnnounceSeen(ids) {
+  const seen = new Set(getSeenAnnounceIds());
+  ids.forEach(id => seen.add(id));
+  localStorage.setItem(ANNOUNCE_SEEN_KEY, JSON.stringify([...seen]));
+}
+
+let currentAnnouncements = [];
+
+function renderAnnounceList(list) {
+  const container = document.getElementById('announceList');
+  container.innerHTML = '';
+  if (list.length === 0) {
+    container.innerHTML = `<p class="text-center text-ink-soft text-sm py-6">ยังไม่มีประกาศตอนนี้~</p>`;
+    return;
+  }
+  list.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'glass-input rounded-2xl p-3.5';
+    card.innerHTML = `
+      <p class="font-display font-bold text-ink text-sm mb-1">📌 ${escapeHtml(a.title)}</p>
+      <p class="text-ink-soft text-sm whitespace-pre-line">${escapeHtml(a.message)}</p>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// kind: 'public' (หน้า login ก่อน auth) หรือ 'mine' (หลัง login แล้ว เห็นของสายตัวเองด้วย)
+async function checkAnnouncements(kind) {
+  let res;
+  if (kind === 'public') {
+    res = await callApi('getPublicAnnouncements', { audience: 'STUDENT' });
+  } else {
+    res = await callApi('getStudentAnnouncements', { token: state.token });
+  }
+  if (!res || !res.success) return;
+
+  currentAnnouncements = res.announcements || [];
+  renderAnnounceList(currentAnnouncements);
+
+  const bell = document.getElementById('announceBell');
+  const dot = document.getElementById('announceDot');
+
+  if (currentAnnouncements.length === 0) {
+    bell.classList.add('hidden');
+    bell.classList.remove('flex');
+    return;
+  }
+  bell.classList.remove('hidden');
+  bell.classList.add('flex');
+
+  const seen = getSeenAnnounceIds();
+  const unseen = currentAnnouncements.filter(a => !seen.includes(a.announce_id));
+
+  if (unseen.length > 0) {
+    dot.classList.remove('hidden');
+    document.getElementById('announceModal').classList.remove('hidden');
+  } else {
+    dot.classList.add('hidden');
+  }
+}
+
+document.getElementById('announceCloseBtn').addEventListener('click', () => {
+  document.getElementById('announceModal').classList.add('hidden');
+});
+
+document.getElementById('announceOkBtn').addEventListener('click', () => {
+  markAnnounceSeen(currentAnnouncements.map(a => a.announce_id));
+  document.getElementById('announceDot').classList.add('hidden');
+  document.getElementById('announceModal').classList.add('hidden');
+});
+
+document.getElementById('announceBell').addEventListener('click', () => {
+  document.getElementById('announceModal').classList.remove('hidden');
+});
+
+/* -----------------------------------------------------------------------
+   วิธีเรียกใช้ (ต้องแก้ 2 จุดใน app.js เดิม):
+
+   1) ในฟังก์ชัน boot() ท้ายไฟล์ — ถ้ายังไม่มี token (ยังไม่ login)
+      ให้เรียก checkAnnouncements('public') เพื่อโชว์ประกาศสาธารณะบนหน้า login
+
+        (async function boot() {
+          const token = loadSession();
+          if (token) {
+            state.token = token;
+            await loadDashboard();
+          } else {
+            checkAnnouncements('public');   // ⬅️ เพิ่มบรรทัดนี้
+          }
+        })();
+
+   2) ในฟังก์ชัน loadDashboard() หลังบรรทัด renderSteps(res.steps);
+      ให้เรียก checkAnnouncements('mine') เพื่อโชว์ประกาศของสายตัวเองทุกครั้งที่เข้าหน้าหลัก
+
+        renderSteps(res.steps);
+        checkAnnouncements('mine');   // ⬅️ เพิ่มบรรทัดนี้
+----------------------------------------------------------------------- */
