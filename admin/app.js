@@ -1,5 +1,5 @@
 // ==========================================
-// 1. HELPERS & STATE
+// 1. HELPERS & STATE MANAGEMENT
 // ==========================================
 const $ = id => document.getElementById(id);
 const toggle = (id, show) => $(id)?.classList.toggle('hidden', !show);
@@ -7,57 +7,42 @@ const on = (id, evt, cb) => $(id)?.addEventListener(evt, cb);
 
 let state = {
   token: localStorage.getItem('a_family_admin_token'),
-  scope: localStorage.getItem('a_family_admin_scope') || 'ALL',
-  rejectType: 'student',
-  rejectTargetId: null,
-  currentTab: 'queue'
+  username: localStorage.getItem('a_family_admin_username'),
+  scope: localStorage.getItem('a_family_admin_scope'), // 'ALL' หรือรหัสสาย เช่น 'A1'
+  currentRejectQueueId: null,
+  currentEditMissionId: null,
+  announcements: []
 };
 
-const saveSession = (token, scope) => {
-  state.token = token; state.scope = scope;
+const saveSession = (token, username, scope) => {
+  state.token = token; state.username = username; state.scope = scope;
   localStorage.setItem('a_family_admin_token', token);
+  localStorage.setItem('a_family_admin_username', username);
   localStorage.setItem('a_family_admin_scope', scope);
 };
+
 const clearSession = () => { localStorage.clear(); location.reload(); };
-
 const escapeHtml = str => Object.assign(document.createElement('div'), { textContent: str || '' }).innerHTML;
-const toDriveThumbnail = (url, size = 1000) => url?.match(/[-\w]{20,}/) ? `https://drive.google.com/thumbnail?id=${url.match(/[-\w]{20,}/)[0]}&sz=w${size}` : url;
+const toDriveThumbnail = (url, size = 600) => url?.match(/[-\w]{20,}/) ? `https://drive.google.com/thumbnail?id=${url.match(/[-\w]{20,}/)[0]}&sz=w${size}` : url;
 
 // ==========================================
-// 2. UI COMPONENTS
-// ==========================================
-const tubeIcon = (fillColor, cracked = false) => `
-  <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
-    <path d="M5 1H9V9.5L12 13.5C12.8 14.7 12 16 10.5 16H3.5C2 16 1.2 14.7 2 13.5L5 9.5V1Z" stroke="#7c3a10" stroke-width="1" fill="rgba(255,255,255,0.5)"/>
-    <path d="M2.6 12.2H11.4L10.6 13.6C10.2 14.4 9.4 15 8.5 15H5.5C4.6 15 3.8 14.4 3.4 13.6L2.6 12.2Z" fill="${fillColor}"/>
-    <line x1="4" y1="1" x2="10" y2="1" stroke="#7c3a10" stroke-width="1" stroke-linecap="round"/>
-    ${cracked ? `<path d="M6 3L7.3 6.2L5.8 8" stroke="#f43f5e" stroke-width="0.8" fill="none"/>` : ''}
-  </svg>`;
-
-const statusBadgeHtml = status => {
-  const configs = {
-    Pending: { bg: 'bg-amber-400/20 text-amber-700', icon: tubeIcon('#ffb454'), text: 'รอตรวจ' },
-    Rejected: { bg: 'bg-rose-500/15 text-rose-600', icon: tubeIcon('#fda4af', true), text: 'ต้องแก้ไข' }
-  };
-  const c = configs[status] || { bg: 'bg-emerald-500/15 text-emerald-700', icon: tubeIcon('#6ee7b7'), text: 'ใช้งานอยู่' };
-  return `<span class="tube-badge px-1.5 py-0.5 rounded-lg ${c.bg} text-[10px] font-bold">${c.icon} ${c.text}</span>`;
-};
-
-// ==========================================
-// 3. AUTH & TABS
+// 2. AUTHENTICATION
 // ==========================================
 on('loginForm', 'submit', async e => {
   e.preventDefault();
   const btn = $('loginBtn');
   toggle('loginError', false);
-  btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ...';
+  btn.disabled = true; btn.textContent = 'กำลังตรวจสอบสิทธิ์...';
+
   try {
-    const res = await callApi('adminLogin', { username: $('loginUser').value.trim(), password: $('loginPass').value });
-    if (!res.success) throw new Error(res.error || 'เข้าสู่ระบบไม่สำเร็จ');
-    saveSession(res.token, res.scope);
-    applyScopeUI();
-    checkAdminAnnouncements('mine');
-    await switchTab('queue');
+    const res = await callApi('adminLogin', {
+      username: $('loginUser').value.trim(),
+      password: $('loginPass').value
+    });
+    if (!res.success) throw new Error(res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    
+    saveSession(res.token, res.username, res.scope);
+    await switchView(true);
   } catch (err) {
     $('loginError').textContent = '⚠ ' + err.message;
     toggle('loginError', true);
@@ -67,365 +52,300 @@ on('loginForm', 'submit', async e => {
 });
 
 on('logoutBtn', 'click', clearSession);
-on('refreshBtn', 'click', loadQueue);
-on('tabQueue', 'click', () => switchTab('queue'));
-on('tabMissions', 'click', () => switchTab('missions'));
-on('tabAnnounce', 'click', () => switchTab('announce'));
 
-function applyScopeUI() {
-  const isAll = state.scope === 'ALL';
-  toggle('scopeBadge', !isAll);
-  $('scopeBadge').innerHTML = isAll ? '' : `<div>${escapeHtml(state.scope)}</div>`;
-  $('scopeHint').textContent = isAll ? 'คุณเข้าใช้งานในฐานะแอดมินกลาง สามารถตรวจงานนักศึกษาและภารกิจของรุ่นพี่ได้ทุกสาย' : `คุณดูแลและเห็นเฉพาะงานของสาย ${state.scope} เท่านั้น`;
-  
-  toggle('tabMissions', true);
-  toggle('centralAdminQueueSection', isAll);
-  
-  ['missionLineCode', 'announceLineCode'].forEach(id => {
-    if ($(id)) {
-      $(id).disabled = !isAll;
-      if (!isAll) $(id).value = state.scope;
+// ==========================================
+// 3. NAVIGATION & TABS SYSTEM
+// ==========================================
+const tabs = ['tabQueue', 'tabMissions', 'tabAnnounce'];
+const views = ['queueView', 'missionsView', 'announceManageView'];
+
+tabs.forEach((tabId, idx) => {
+  on(tabId, 'click', () => switchTab(views[idx], tabId));
+});
+
+function switchTab(activeViewId, activeTabId) {
+  views.forEach(v => toggle(v, v === activeViewId));
+  tabs.forEach(t => {
+    const el = $(t);
+    if (t === activeTabId) {
+      el?.classList.add('flame-btn', 'text-white');
+      el?.classList.remove('text-ink-soft', 'hover:bg-white/40');
+    } else {
+      el?.classList.remove('flame-btn', 'text-white');
+      el?.classList.add('text-ink-soft', 'hover:bg-white/40');
     }
   });
-
-  if ($('saveMissionBtn')) $('saveMissionBtn').textContent = isAll ? 'บันทึกและอนุมัติภารกิจทันที' : 'ส่งคำขอเพิ่ม/แก้ไขภารกิจไปยังแอดมินกลาง';
-  if ($('missionFormTitle')) $('missionFormTitle').textContent = isAll ? '➕ เพิ่ม / แก้ไขภารกิจ (ระบบส่วนกลาง)' : '📝 ส่งคำขอเพิ่ม / แก้ไขคำใบ้ภารกิจ';
+  
+  // โหลดข้อมูลใหม่ตามแท็บที่เปิด
+  if (activeViewId === 'queueView') loadQueue();
+  if (activeViewId === 'missionsView') loadMissions();
+  if (activeViewId === 'announceManageView') loadAnnounceManage();
 }
 
-async function switchTab(tab) {
-  state.currentTab = tab;
-  toggle('loginView', false); toggle('appShell', true);
-  applyScopeUI();
-
-  const views = { queue: 'queueView', missions: 'missionsView', announce: 'announceManageView' };
-  ['queue', 'missions', 'announce'].forEach(t => {
-    const active = state.currentTab === t;
-    $(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`).className = `tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition ${active ? 'flame-btn text-white' : 'text-ink-soft hover:text-amber-700'}`;
-    toggle(views[t], active);
-  });
-
-  if (tab === 'queue') await loadQueue();
-  else if (tab === 'missions') await loadMissions();
-  else if (tab === 'announce') await loadAnnouncementsManage();
-}
-
-// ==========================================
-// 4. QUEUE MANAGEMENT (Event Delegation Applied)
-// ==========================================
-async function loadQueue() {
-  const res = await callApi('getQueue', { token: state.token });
-  if (!res.success) {
-    clearSession();
-    $('loginError').textContent = '⚠ ' + (res.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
-    toggle('loginError', true); toggle('loginView', true); toggle('appShell', false);
-    return;
+async function switchView(isLoggedIn) {
+  toggle('loginView', !isLoggedIn);
+  toggle('appShell', isLoggedIn);
+  if (isLoggedIn) {
+    setupScopeBadge();
+    switchTab('queueView', 'tabQueue');
   }
-  if (res.scope && res.scope !== state.scope) saveSession(state.token, res.scope);
-  applyScopeUI();
+}
+
+function setupScopeBadge() {
+  const isCentral = state.scope === 'ALL';
+  const badge = $('scopeBadge');
+  if (badge) {
+    badge.textContent = isCentral ? 'แอดมินกลาง 👑' : `สายรหัส ${state.scope} 🧪`;
+    badge.className = isCentral 
+      ? 'element-tile text-white bg-amber-700 px-2.5 py-1.5 rounded-xl text-xs font-extrabold text-center leading-tight'
+      : 'element-tile text-ink bg-amber-200 px-2.5 py-1.5 rounded-xl text-xs font-extrabold text-center leading-tight';
+    toggle('scopeBadge', true);
+  }
+  $('scopeHint').textContent = `สิทธิ์การเข้าถึง: เข้าดูและจัดการเฉพาะระบบของ ${isCentral ? 'ทุกสายรหัสส่วนกลาง' : `สายรหัส ${state.scope}`}`;
   
-  $('queueCount').textContent = `${res.queue.length} รายการ`;
-  toggle('emptyState', res.queue.length === 0);
-  
-  $('queueList').innerHTML = res.queue.map(item => `
-    <div class="glass rounded-2xl p-4 flex gap-4">
-      <img src="${toDriveThumbnail(item.image_url, 300)}" loading="lazy" class="w-28 h-28 object-cover rounded-xl border border-white/60 flex-shrink-0 cursor-pointer bg-white/40 shadow-sm" onclick="window.open('${toDriveThumbnail(item.image_url, 1600)}', '_blank')" onerror="this.onerror=null;this.src='${item.image_url}';" />
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="element-tile px-2 py-0.5 rounded-md text-xs font-extrabold font-data">${escapeHtml(item.line_code)}</span>
-          <span class="text-xs text-ink-soft font-medium">ด่านที่ ${item.step}</span>
+  // ปรับฟอร์มเพิ่มภารกิจตามสิทธิ์
+  const lineSelect = $('missionLineCode');
+  if (lineSelect) {
+    lineSelect.value = state.scope;
+    lineSelect.disabled = !isCentral; // ถ้าไม่ใช่แอดมินกลาง จะเลือกสายอื่นไม่ได้
+  }
+  toggle('centralAdminQueueSection', isCentral);
+}
+
+// ==========================================
+// 4. QUEUE MANAGEMENT (ตรวจงานน้องๆ)
+// ==========================================
+on('refreshBtn', 'click', () => loadQueue());
+
+async function loadQueue() {
+  const res = await callApi('getAdminQueue', { token: state.token });
+  if (!res.success) return clearSession();
+
+  $('queueCount').textContent = `รายการรอตรวจทั้งหมด: ${res.queue?.length || 0} รายการ`;
+  toggle('emptyState', !res.queue || res.queue.length === 0);
+
+  $('queueList').innerHTML = (res.queue || []).map(q => `
+    <div class="glass-strong rounded-2xl p-4 space-y-3">
+      <div class="flex justify-between items-start flex-wrap gap-1">
+        <div>
+          <span class="bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">สาย ${q.line_code}</span>
+          <h3 class="font-display font-bold text-sm text-ink mt-1">${escapeHtml(q.student_name)} (${q.student_id})</h3>
         </div>
-        <p class="font-bold text-sm text-ink">${escapeHtml(item.nickname)} <span class="text-ink-soft font-normal font-data text-xs">(${escapeHtml(String(item.student_id))})</span></p>
-        <p class="text-ink-soft text-sm mt-1 whitespace-pre-line">${escapeHtml(item.student_msg) || '<span class="text-ink-soft/50">— ไม่มีข้อความแนบ —</span>'}</p>
-        <div class="flex gap-2 mt-3">
-          <button class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg px-3 py-1.5 shadow-sm transition" data-action="approve" data-id="${item.sub_id}">✓ อนุมัติ</button>
-          <button class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg px-3 py-1.5 shadow-sm transition" data-action="reject" data-id="${item.sub_id}">✕ ปฏิเสธ</button>
-        </div>
+        <span class="text-[11px] text-ink-soft/70 font-mono">${q.timestamp}</span>
+      </div>
+      <p class="text-xs text-ink"><b class="text-amber-700">ด่านที่ ${q.step}:</b> ${escapeHtml(q.task_title)}</p>
+      ${q.student_msg ? `<p class="text-xs bg-white/50 p-2.5 rounded-xl text-ink-soft italic">" ${escapeHtml(q.student_msg)} "</p>` : ''}
+      ${q.image_url ? `
+        <a href="${q.image_url}" target="_blank" class="block group relative overflow-hidden rounded-xl border border-ink/5">
+          <img src="${toDriveThumbnail(q.image_url)}" class="w-full max-h-64 object-cover group-hover:scale-102 transition duration-300" />
+          <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition">คลิกเพื่อดูรูปใหญ่ 🔍</div>
+        </a>` : ''}
+      <div class="flex gap-2 pt-1">
+        <button onclick="handleApprove('${q.queue_id}')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 rounded-xl transition">ผ่านคุ้มค่า ✅</button>
+        <button onclick="openRejectModal('${q.queue_id}')" class="flex-1 bg-rose-100 hover:bg-rose-200 text-rose-600 font-bold text-xs py-2 rounded-xl transition">ให้กลับไปแก้ ❌</button>
       </div>
     </div>
   `).join('');
 }
 
-// Queue Actions (Delegation)
-on('queueList', 'click', async e => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  const { action, id } = btn.dataset;
-  if (action === 'approve') {
-    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-    try {
-      const res = await callApi('approveSubmission', { token: state.token, sub_id: id });
-      if (!res.success) throw new Error(res.error);
-      await loadQueue();
-    } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = '✓ อนุมัติ'; }
-  } else if (action === 'reject') {
-    openRejectModal(id, 'student');
-  }
-});
+window.handleApprove = async (queueId) => {
+  if (!confirm('ยืนยันให้ผ่านด่านนี้ใช่หรือไม่? น้องจะได้รับคำใบ้ถัดไปทันที')) return;
+  const res = await callApi('reviewSubmission', { token: state.token, queue_id: queueId, action: 'Approve' });
+  if (res.success) loadQueue(); else alert(res.error || 'เกิดข้อผิดพลาด');
+};
 
-function openRejectModal(id, type) {
-  state.rejectTargetId = id; state.rejectType = type;
+window.openRejectModal = (queueId) => {
+  state.currentRejectQueueId = queueId;
   $('rejectReasonInput').value = '';
-  $('rejectModalTitle').textContent = type === 'mission' ? 'ระบุเหตุผลที่ปฏิเสธภารกิจของรุ่นพี่' : 'ระบุเหตุผลที่ปฏิเสธงานของน้อง';
   toggle('rejectModal', true);
-}
+};
 
 on('cancelReject', 'click', () => toggle('rejectModal', false));
 on('confirmReject', 'click', async () => {
   const reason = $('rejectReasonInput').value.trim();
-  if (!reason) return alert('กรุณากรอกเหตุผลด้วยครับ');
+  if (!reason) return alert('กรุณาระบุเหตุผลที่ให้แก้ด้วยครับพี่~');
   
-  const btn = $('confirmReject');
-  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-  try {
-    let res;
-    if (state.rejectType === 'student') {
-      res = await callApi('rejectSubmission', { token: state.token, sub_id: state.rejectTargetId, reject_reason: reason });
-      if (!res.success) throw new Error(res.error);
-      await loadQueue();
-    } else {
-      const [lineCode, step] = state.rejectTargetId.split('_');
-      res = await callApi('rejectMission', { token: state.token, line_code: lineCode, step: Number(step), reject_reason: reason });
-      if (!res.success) throw new Error(res.error);
-      await loadMissions();
-    }
-    toggle('rejectModal', false);
-  } catch (err) { alert(err.message); } 
-  finally { btn.disabled = false; btn.textContent = 'ยืนยันปฏิเสธ'; }
+  const res = await callApi('reviewSubmission', {
+    token: state.token,
+    queue_id: state.currentRejectQueueId,
+    action: 'Reject',
+    reason: reason
+  });
+  if (res.success) { toggle('rejectModal', false); loadQueue(); } else alert(res.error || 'เกิดข้อผิดพลาด');
 });
 
 // ==========================================
-// 5. MISSIONS MANAGEMENT
+// 5. MISSION MANAGEMENT (จัดการภารกิจ)
 // ==========================================
-async function loadMissions() {
-  try {
-    const res = await callApi('listMissions', { token: state.token });
-    if (!res.success) return alert(res.error || 'โหลดรายการภารกิจไม่สำเร็จ');
-    renderMissions(res.missions || []);
-    
-    if (state.scope === 'ALL') {
-      const queueRes = await callApi('getMissionQueue', { token: state.token });
-      if (queueRes.success) renderMissionQueue(queueRes.queue || []);
-    }
-  } catch (e) { alert('เกิดข้อผิดพลาดในการโหลดข้อมูลภารกิจ'); }
-}
-
-function renderMissionQueue(queue) {
-  toggle('centralAdminQueueSection', queue.length > 0);
-  $('missionQueueList').innerHTML = queue.map(m => `
-    <div class="glass-input rounded-xl p-3 text-sm">
-      <div class="flex items-center gap-2 mb-1.5"><span class="element-tile px-2 py-0.5 rounded-md text-xs font-extrabold font-data">${escapeHtml(m.line_code)}</span><span class="text-xs font-bold text-amber-700">ด่านที่ ${m.step}</span></div>
-      <p class="font-bold text-ink mb-0.5">หัวข้อ: ${escapeHtml(m.task_title)}</p>
-      <p class="text-ink-soft text-xs mb-1"><b>วิธีทำ:</b> ${escapeHtml(m.task_desc)}</p>
-      <p class="text-ink-soft text-xs mb-3"><b>คำใบ้หลังผ่าน:</b> ${escapeHtml(m.hint_text) || '— ไม่มี —'}</p>
-      <div class="flex gap-2">
-        <button class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg px-2.5 py-1" data-action="approve-m" data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">✓ ผ่านอนุมัติ</button>
-        <button class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg px-2.5 py-1" data-action="reject-m" data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">✕ ไม่ผ่าน (คอมเมนต์)</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-on('missionQueueList', 'click', async e => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  const { action, line, step } = btn.dataset;
-  if (action === 'approve-m') {
-    btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-    try {
-      const res = await callApi('approveMission', { token: state.token, line_code: line, step: Number(step) });
-      if (!res.success) throw new Error(res.error);
-      await loadMissions();
-    } catch (err) { alert(err.message); btn.disabled = false; btn.textContent = '✓ ผ่านอนุมัติ'; }
-  } else if (action === 'reject-m') {
-    openRejectModal(`${line}_${step}`, 'mission');
-  }
-});
-
-function renderMissions(missions) {
-  const filtered = state.scope === 'ALL' ? missions : missions.filter(m => m.line_code === state.scope);
-  toggle('missionsEmptyState', filtered.length === 0);
-  
-  $('missionsList').innerHTML = filtered.map(m => `
-    <div class="glass ${m.status === 'Pending' ? 'border-amber-400/50' : m.status === 'Rejected' ? 'border-rose-400/50' : ''} rounded-2xl p-3 flex flex-col gap-1">
-      <div class="flex items-center gap-2">
-        <span class="element-tile px-2 py-0.5 rounded-md text-xs font-extrabold font-data flex-shrink-0">${escapeHtml(m.line_code)}</span>
-        <span class="text-xs text-ink-soft flex-shrink-0 font-medium">ด่าน ${m.step}</span>
-        ${statusBadgeHtml(m.status)}
-        <div class="flex-1"></div>
-        <button class="text-xs text-amber-700 underline flex-shrink-0 mr-2 font-semibold" data-action="edit" data-line="${escapeHtml(m.line_code)}" data-step="${m.step}" data-title="${escapeHtml(m.task_title)}" data-desc="${escapeHtml(m.task_desc)}" data-hint="${escapeHtml(m.hint_text)}">แก้ไข</button>
-        ${state.scope === 'ALL' ? `<button class="text-xs text-rose-600 underline flex-shrink-0" data-action="delete" data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">ลบ</button>` : ''}
-      </div>
-      <div class="mt-1">
-        <p class="text-sm font-bold text-ink">${escapeHtml(m.task_title)}</p>
-        <p class="text-xs text-ink-soft truncate mt-0.5">💡 ${escapeHtml(m.hint_text) || '— ไม่มีคำใบ้ —'}</p>
-      </div>
-      ${m.status === 'Rejected' ? `<div class="mt-2 text-xs bg-rose-500/10 border border-rose-400/30 rounded-lg p-2 text-rose-700"><b>เหตุผลที่ไม่ผ่าน:</b> ${escapeHtml(m.reject_reason)}</div>` : ''}
-    </div>
-  `).join('');
-}
-
-on('missionsList', 'click', async e => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  const { action, line, step, title, desc, hint } = btn.dataset;
-  if (action === 'edit') {
-    $('missionLineCode').value = line; $('missionStep').value = step;
-    $('stepDisplay').textContent = `กำลังแก้ไขด่านที่ ${step}`; toggle('cancelEditBtn', true);
-    $('missionTitle').value = title; $('missionDesc').value = desc; $('missionHint').value = hint;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else if (action === 'delete') {
-    if (state.scope !== 'ALL' || !confirm(`ลบภารกิจ ${line} ด่าน ${step} ใช่ไหม?`)) return;
-    try {
-      const res = await callApi('deleteMission', { token: state.token, line_code: line, step: Number(step) });
-      if (!res.success) throw new Error(res.error);
-      await loadMissions();
-    } catch (err) { alert(err.message); }
-  }
-});
-
+// 💥 จุดที่คุณขอมา: โค้ดปุ่มกดยกเลิกการแก้ไขภารกิจ
 on('cancelEditBtn', 'click', () => {
-  $('missionStep').value = 0; $('stepDisplay').textContent = 'รันเลขอัตโนมัติ 🚀'; toggle('cancelEditBtn', false);
-  $('missionTitle').value = ''; $('missionDesc').value = ''; $('missionHint').value = '';
+  $('missionStep').value = 0;
+  $('stepDisplay').textContent = 'รันเลขอัตโนมัติ 🚀';
+  $('missionFormTitle').textContent = '➕ เพิ่ม / แก้ไขภารกิจ';
+  $('missionTitle').value = '';
+  $('missionDesc').value = '';
+  $('missionHint').value = '';
+  toggle('cancelEditBtn', false);
+  state.currentEditMissionId = null;
+  
+  const lineSelect = $('missionLineCode');
+  if (lineSelect) lineSelect.disabled = (state.scope !== 'ALL');
 });
 
 on('saveMissionBtn', 'click', async () => {
+  const title = $('missionTitle').value.trim();
+  if (!title) return showFormMsg('missionError', 'กรุณากรอกชื่อภารกิจ');
+
   const btn = $('saveMissionBtn');
-  toggle('missionError', false); toggle('missionSuccess', false);
-  btn.disabled = true; btn.textContent = 'กำลังดำเนินการ...';
-  
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  hideFormMsg('missionError'); hideFormMsg('missionSuccess');
+
   try {
-    const res = await callApi('addMission', {
-      token: state.token, line_code: $('missionLineCode').value, step: Number($('missionStep').value),
-      task_title: $('missionTitle').value.trim(), task_desc: $('missionDesc').value.trim(), hint_text: $('missionHint').value.trim()
+    const res = await callApi('saveMission', {
+      token: state.token,
+      mission_id: state.currentEditMissionId,
+      line_code: $('missionLineCode').value,
+      step: Number($('missionStep').value),
+      title: title,
+      desc: $('missionDesc').value.trim(),
+      hint: $('missionHint').value.trim()
     });
-    if (!res.success) throw new Error(res.error || 'บันทึกภารกิจไม่สำเร็จ');
+
+    if (!res.success) throw new Error(res.error || 'บันทึกไม่สำเร็จ');
     
-    $('missionSuccess').textContent = '✓ ' + (res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว!');
-    toggle('missionSuccess', true);
-    
-    $('cancelEditBtn').click(); // Reset form
-    await loadMissions();
+    showFormMsg('missionSuccess', '🎉 บันทึกภารกิจเรียบร้อยแล้ว!');
+    $('cancelEditBtn').click(); // สั่งรีเซ็ตฟอร์มด้วยปุ่มยกเลิก
+    loadMissions();
   } catch (err) {
-    $('missionError').textContent = '⚠ ' + err.message; toggle('missionError', true);
-  } finally { btn.disabled = false; applyScopeUI(); }
-});
-
-// ==========================================
-// 6. ANNOUNCEMENT MANAGEMENT
-// ==========================================
-async function loadAnnouncementsManage() {
-  try {
-    const res = await callApi('listAnnouncements', { token: state.token });
-    if (!res.success) return alert(res.error || 'โหลดรายการประกาศไม่สำเร็จ');
-    renderAnnounceManageList(res.announcements || []);
-  } catch (e) { alert('เกิดข้อผิดพลาดในการโหลดข้อมูลประกาศ'); }
-}
-
-const AUDIENCE_LABEL = { STUDENT: 'นักศึกษา', ADMIN: 'รุ่นพี่', ALL: 'ทุกคน' };
-
-function renderAnnounceManageList(list) {
-  toggle('announceListEmptyState', list.length === 0);
-  $('announceManageList').innerHTML = list.map(a => {
-    const isOff = a.status !== 'Active';
-    return `
-    <div class="glass rounded-2xl p-3 flex flex-col gap-1 ${isOff ? 'opacity-60' : ''}">
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="element-tile px-2 py-0.5 rounded-md text-xs font-extrabold font-data">${escapeHtml(a.line_code)}</span>
-        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-700">${AUDIENCE_LABEL[a.audience] || a.audience}</span>
-        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isOff ? 'bg-ink/10 text-ink-soft' : 'bg-emerald-500/15 text-emerald-700'}">${isOff ? 'ปิดใช้งาน' : 'กำลังแสดง'}</span>
-        <div class="flex-1"></div>
-        <button class="text-xs text-amber-700 underline mr-2 font-semibold" data-action="edit-a" data-id="${escapeHtml(a.announce_id)}" data-title="${escapeHtml(a.title)}" data-message="${escapeHtml(a.message)}" data-audience="${escapeHtml(a.audience)}" data-line="${escapeHtml(a.line_code)}">แก้ไข</button>
-        <button class="text-xs text-amber-700 underline mr-2 font-semibold" data-action="toggle-a" data-id="${escapeHtml(a.announce_id)}" data-status="${escapeHtml(a.status)}">${isOff ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</button>
-        <button class="text-xs text-rose-600 underline" data-action="delete-a" data-id="${escapeHtml(a.announce_id)}">ลบ</button>
-      </div>
-      <div class="mt-1"><p class="text-sm font-bold text-ink">📌 ${escapeHtml(a.title)}</p><p class="text-xs text-ink-soft mt-0.5 whitespace-pre-line">${escapeHtml(a.message)}</p></div>
-    </div>`;
-  }).join('');
-}
-
-on('announceManageList', 'click', async e => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  const { action, id, title, message, audience, line, status } = btn.dataset;
-  
-  if (action === 'edit-a') {
-    $('announceEditId').value = id; $('announceTitle').value = title; $('announceMessage').value = message;
-    $('announceAudience').value = audience; $('announceLineCode').value = line;
-    $('announceFormTitle').textContent = '✏️ กำลังแก้ไขประกาศ'; toggle('cancelAnnounceEditBtn', true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else if (action === 'toggle-a') {
-    btn.disabled = true;
-    try {
-      const res = await callApi('editAnnouncement', { token: state.token, announce_id: id, status: status === 'Active' ? 'Inactive' : 'Active' });
-      if (!res.success) throw new Error(res.error); await loadAnnouncementsManage();
-    } catch (err) { alert(err.message); btn.disabled = false; }
-  } else if (action === 'delete-a') {
-    if (!confirm('ลบประกาศนี้ใช่ไหม?')) return;
-    try {
-      const res = await callApi('deleteAnnouncement', { token: state.token, announce_id: id });
-      if (!res.success) throw new Error(res.error); await loadAnnouncementsManage();
-    } catch (err) { alert(err.message); }
+    showFormMsg('missionError', '❌ ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'บันทึกภารกิจ';
   }
 });
 
+async function loadMissions() {
+  const res = await callApi('getAdminMissions', { token: state.token });
+  if (!res.success) return;
+
+  toggle('missionsEmptyState', !res.missions || res.missions.length === 0);
+  $('missionsList').innerHTML = (res.missions || []).map(m => `
+    <div class="glass rounded-xl p-3.5 flex justify-between items-start gap-3">
+      <div class="space-y-1">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 rounded">สาย ${m.line_code}</span>
+          <span class="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded">ด่าน ${m.step}</span>
+          <h4 class="font-display font-bold text-xs text-ink">${escapeHtml(m.title)}</h4>
+        </div>
+        <p class="text-[11px] text-ink-soft line-clamp-2">${escapeHtml(m.desc)}</p>
+      </div>
+      <button onclick="prepareEditMission(${JSON.stringify(m).replace(/"/g, '&quot;')})" class="text-[11px] text-amber-700 hover:underline font-bold flex-shrink-0">แก้ไข ✏️</button>
+    </div>
+  `).join('');
+}
+
+window.prepareEditMission = (m) => {
+  state.currentEditMissionId = m.mission_id;
+  $('missionFormTitle').textContent = `✏️ แก้ไขภารกิจ (ด่านที่ ${m.step})`;
+  $('missionLineCode').value = m.line_code;
+  $('missionLineCode').disabled = true; // ล็อกไม่ให้เปลี่ยนสายตอนแก้ไข
+  $('missionStep').value = m.step;
+  $('stepDisplay').textContent = `ด่านที่ ${m.step} (แก้ไขอยู่)`;
+  $('missionTitle').value = m.title;
+  $('missionDesc').value = m.desc || '';
+  $('missionHint').value = m.hint || '';
+  toggle('cancelEditBtn', true);
+  $('missionFormTitle').scrollIntoView({ behavior: 'smooth' });
+};
+
+// ==========================================
+// 6. ANNOUNCEMENT MANAGEMENT (จัดการประกาศ)
+// ==========================================
 on('cancelAnnounceEditBtn', 'click', () => {
-  $('announceEditId').value = ''; $('announceTitle').value = ''; $('announceMessage').value = '';
-  $('announceAudience').value = 'ALL'; $('announceLineCode').value = state.scope === 'ALL' ? 'A1' : state.scope;
-  $('announceFormTitle').textContent = '➕ เพิ่ม / แก้ไขประกาศ'; toggle('cancelAnnounceEditBtn', false);
+  $('announceFormTitle').textContent = '➕ เพิ่ม / แก้ไขประกาศ';
+  $('announceTitle').value = '';
+  $('announceMessage').value = '';
+  $('announceEditId').value = '';
+  toggle('cancelAnnounceEditBtn', false);
 });
 
 on('saveAnnounceBtn', 'click', async () => {
+  const title = $('announceTitle').value.trim();
+  const msg = $('announceMessage').value.trim();
+  if (!title || !msg) return showFormMsg('announceError', 'กรุณากรอกหัวข้อและข้อความให้ครบถ้วน');
+
   const btn = $('saveAnnounceBtn');
-  toggle('announceError', false); toggle('announceSuccess', false);
-  const data = { announce_id: $('announceEditId').value, title: $('announceTitle').value.trim(), message: $('announceMessage').value.trim(), audience: $('announceAudience').value, line_code: $('announceLineCode').value };
-  
-  if (!data.title || !data.message) return $('announceError').textContent = '⚠ กรุณากรอกหัวข้อและข้อความ', toggle('announceError', true);
-  
   btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  hideFormMsg('announceError'); hideFormMsg('announceSuccess');
+
   try {
-    const endpoint = data.announce_id ? 'editAnnouncement' : 'addAnnouncement';
-    const res = await callApi(endpoint, { token: state.token, ...data });
+    const res = await callApi('saveAnnouncement', {
+      token: state.token,
+      announce_id: $('announceEditId').value || null,
+      audience: $('announceAudience').value,
+      line_code: $('announceLineCode').value,
+      title: title,
+      message: msg
+    });
+
     if (!res.success) throw new Error(res.error || 'บันทึกประกาศไม่สำเร็จ');
     
-    $('announceSuccess').textContent = '✓ ' + (res.message || 'บันทึกเรียบร้อยแล้ว!'); toggle('announceSuccess', true);
-    $('cancelAnnounceEditBtn').click(); // Reset form
-    await loadAnnouncementsManage();
-  } catch (err) { $('announceError').textContent = '⚠ ' + err.message; toggle('announceError', true); }
-  finally { btn.disabled = false; btn.textContent = 'บันทึกประกาศ'; }
+    showFormMsg('announceSuccess', '📢 บันทึกประกาศเรียบร้อยแล้ว!');
+    $('cancelAnnounceEditBtn').click();
+    loadAnnounceManage();
+  } catch (err) {
+    showFormMsg('announceError', '❌ ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'บันทึกประกาศ';
+  }
 });
 
-// ==========================================
-// 7. ADMIN ANNOUNCEMENT NOTIFICATIONS
-// ==========================================
-const ADMIN_ANNOUNCE_SEEN_KEY = 'a_family_admin_announce_seen';
-const getSeenIds = () => JSON.parse(localStorage.getItem(ADMIN_ANNOUNCE_SEEN_KEY) || '[]');
-const markSeenIds = ids => localStorage.setItem(ADMIN_ANNOUNCE_SEEN_KEY, JSON.stringify([...new Set([...getSeenIds(), ...ids])]));
+async function loadAnnounceManage() {
+  const res = await callApi('getAdminAnnouncements', { token: state.token });
+  if (!res.success) return;
 
-let currentAdminAnnouncements = [];
-
-async function checkAdminAnnouncements(kind) {
-  const res = await callApi(kind === 'public' ? 'getPublicAnnouncements' : 'getAdminAnnouncements', kind === 'public' ? { audience: 'ADMIN' } : { token: state.token });
-  if (!res?.success) return;
-
-  currentAdminAnnouncements = res.announcements || [];
-  const container = $('announceList');
-  container.innerHTML = currentAdminAnnouncements.length ? currentAdminAnnouncements.map(a => `<div class="glass-input rounded-2xl p-3.5"><p class="font-display font-bold text-ink text-sm mb-1">📌 ${escapeHtml(a.title)}</p><p class="text-ink-soft text-sm whitespace-pre-line">${escapeHtml(a.message)}</p></div>`).join('') : `<p class="text-center text-ink-soft text-sm py-6">ยังไม่มีประกาศตอนนี้~</p>`;
-  
-  const unseen = currentAdminAnnouncements.filter(a => !getSeenIds().includes(a.announce_id));
-  toggle('announceBell', currentAdminAnnouncements.length > 0);
-  $('announceBell')?.classList.toggle('flex', currentAdminAnnouncements.length > 0);
-  toggle('announceDot', unseen.length > 0);
-  if (unseen.length > 0) toggle('announceModal', true);
+  toggle('announceListEmptyState', !res.announcements || res.announcements.length === 0);
+  $('announceManageList').innerHTML = (res.announcements || []).map(a => `
+    <div class="glass rounded-xl p-3.5 space-y-2">
+      <div class="flex justify-between items-start gap-2">
+        <div>
+          <span class="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded">ผู้เห็น: ${a.audience}</span>
+          <span class="bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 rounded">สาย: ${a.line_code}</span>
+          <h4 class="font-display font-bold text-xs text-ink mt-1">📌 ${escapeHtml(a.title)}</h4>
+        </div>
+        <div class="flex gap-2 text-[11px] font-bold flex-shrink-0">
+          <button onclick="prepareEditAnnounce(${JSON.stringify(a).replace(/"/g, '&quot;')})" class="text-amber-700 hover:underline">แก้</button>
+          <button onclick="handleDeleteAnnounce('${a.announce_id}')" class="text-rose-600 hover:underline">ลบ</button>
+        </div>
+      </div>
+      <p class="text-[11px] text-ink-soft whitespace-pre-line">${escapeHtml(a.message)}</p>
+    </div>
+  `).join('');
 }
 
-on('announceCloseBtn', 'click', () => toggle('announceModal', false));
-on('announceOkBtn', 'click', () => { markSeenIds(currentAdminAnnouncements.map(a => a.announce_id)); toggle('announceDot', false); toggle('announceModal', false); });
-on('announceBell', 'click', () => toggle('announceModal', true));
+window.prepareEditAnnounce = (a) => {
+  $('announceEditId').value = a.announce_id;
+  $('announceFormTitle').textContent = '✏️ แก้ไขประกาศ';
+  $('announceAudience').value = a.audience;
+  $('announceLineCode').value = a.line_code;
+  $('announceTitle').value = a.title;
+  $('announceMessage').value = a.message;
+  toggle('cancelAnnounceEditBtn', true);
+  $('announceFormTitle').scrollIntoView({ behavior: 'smooth' });
+};
+
+window.handleDeleteAnnounce = async (id) => {
+  if (!confirm('คุณแน่ใจใช่ไหมที่จะลบประกาศนี้? ย้อนกลับไม่ได้แล้วนะพี่!')) return;
+  const res = await callApi('deleteAnnouncement', { token: state.token, announce_id: id });
+  if (res.success) loadAnnounceManage(); else alert(res.error || 'เกิดข้อผิดพลาด');
+};
+
+// Helpers ย่อยสำหรับฟอร์มข้อความแจ้งเตือน
+function showFormMsg(id, txt) { const el = $(id); if(el) { el.textContent = txt; el.classList.remove('hidden'); } }
+function hideFormMsg(id) { $(id)?.classList.add('hidden'); }
 
 // ==========================================
-// 8. INIT
+// 7. INITIALIZATION (BOOT)
 // ==========================================
 (async () => {
-  if (state.token) { checkAdminAnnouncements('mine'); await switchTab('queue'); }
-  else { checkAdminAnnouncements('public'); }
+  await switchView(!!state.token);
 })();
