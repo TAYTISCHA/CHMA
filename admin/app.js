@@ -561,7 +561,7 @@ document.getElementById('saveMissionBtn').addEventListener('click', async () => 
   }
 
   if (step < 0) {
-    errEl.textContent = '⚠ ด��านต้องเป็นเลขบวก';
+    errEl.textContent = '⚠ ด่านต้องเป็นเลขบวก';
     errEl.classList.remove('hidden');
     return;
   }
