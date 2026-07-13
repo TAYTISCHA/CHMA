@@ -91,6 +91,7 @@
       <div class="glass flex items-center gap-1 rounded-2xl p-1">
         <button id="tabQueue" class="tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition">ภารกิจรอตรวจ</button>
         <button id="tabMissions" class="tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition">จัดการภารกิจ</button>
+        <button id="tabAnnounce" class="tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition">ประกาศ 📢</button>
       </div>
       <span id="scopeBadge" class="hidden element-tile text-ink px-2.5 py-1.5 rounded-lg text-xs font-extrabold text-center leading-tight"></span>
     </div>
@@ -171,6 +172,61 @@
     </div>
     <div id="missionsList" class="space-y-3"></div>
   </div>
+
+  <div id="announceManageView" class="hidden">
+    <div class="glass-strong rounded-2xl p-4 mb-6">
+      <h2 class="font-display font-bold text-sm mb-4" id="announceFormTitle">➕ เพิ่ม / แก้ไขประกาศ</h2>
+
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <label class="block">
+          <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide">กลุ่มผู้เห็น</span>
+          <select id="announceAudience" class="w-full mt-1 glass-input rounded-xl px-3 py-2 text-sm font-data focus:ring-2 focus:ring-amber-400">
+            <option value="ALL">ทุกคน (นักศึกษา + รุ่นพี่)</option>
+            <option value="STUDENT">นักศึกษาเท่านั้น</option>
+            <option value="ADMIN">รุ่นพี่/แอดมินเท่านั้น</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide">สาย</span>
+          <select id="announceLineCode" class="w-full mt-1 glass-input rounded-xl px-3 py-2 text-sm font-data focus:ring-2 focus:ring-amber-400 disabled:opacity-60 disabled:cursor-not-allowed">
+            <option value="A1">A1</option>
+            <option value="A2">A2</option>
+            <option value="A3">A3</option>
+            <option value="A4">A4</option>
+            <option value="A5">A5</option>
+            <option value="A6">A6</option>
+            <option value="ALL">ALL (ทุกสาย)</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="block mb-3">
+        <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide">หัวข้อประกาศ</span>
+        <input id="announceTitle" type="text" placeholder="เช่น 📢 เลื่อนกำหนดส่งภารกิจที่ 5"
+          class="w-full mt-1 glass-input rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-400" />
+      </label>
+
+      <label class="block mb-4">
+        <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide">ข้อความ</span>
+        <textarea id="announceMessage" rows="3" placeholder="รายละเอียดประกาศ..."
+          class="w-full mt-1 glass-input rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-400"></textarea>
+      </label>
+
+      <input id="announceEditId" type="hidden" value="" />
+
+      <p id="announceError" class="text-rose-600 text-xs mb-2 hidden font-medium"></p>
+      <p id="announceSuccess" class="text-emerald-700 text-xs mb-2 hidden font-semibold"></p>
+
+      <div class="flex gap-2">
+        <button id="cancelAnnounceEditBtn" class="hidden flex-1 rounded-xl py-2.5 text-sm border border-ink/15 text-ink-soft font-medium hover:bg-white/40 transition">ยกเลิกแก้ไข</button>
+        <button id="saveAnnounceBtn" class="flex-1 flame-btn text-white font-bold rounded-xl py-2.5 text-sm transition font-display tracking-wide">บันทึกประกาศ</button>
+      </div>
+    </div>
+
+    <h2 class="font-display font-bold text-sm mb-3">📋 ประกาศทั้งหมด</h2>
+    <div id="announceListEmptyState" class="hidden text-center py-12 text-ink-soft text-sm">ยังไม่มีประกาศในระบบ เริ่มเพิ่มด้านบนได้เลย</div>
+    <div id="announceManageList" class="space-y-3"></div>
+  </div>
 </div>
 
 <div id="rejectModal" class="hidden fixed inset-0 bg-ink/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
@@ -185,80 +241,7 @@
   </div>
 </div>
 
-  <!--
-  ⚠️ วิธีติดตั้งในไฟล์ admin/index.html เดิม 3 จุด:
-
-  จุดที่ 1: เพิ่มปุ่มแท็บ "ประกาศ" ต่อจากปุ่ม tabMissions ในบล็อกนี้เดิม
-  <div class="glass flex items-center gap-1 rounded-2xl p-1">
-    <button id="tabQueue" ...>ภารกิจรอตรวจ</button>
-    <button id="tabMissions" ...>จัดการภารกิจ</button>
-    <button id="tabAnnounce" class="tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition">ประกาศ 📢</button>   <!-- ⬅️ เพิ่มบรรทัดนี้ -->
-  </div>
-
-  จุดที่ 2: เพิ่ม <div id="announceManageView"> ด้านล่างนี้ เป็นพี่น้องกับ #queueView และ #missionsView
-  (วางต่อจาก </div> ปิด #missionsView ก่อนปิด #appShell)
-
-  จุดที่ 3: เพิ่ม popup + ปุ่มกระดิ่ง (ก้อนล่างสุดของไฟล์นี้) เป็น top-level element
-  วางไว้ก่อน <script src="../config.js"> นอก #loginView และนอก #appShell
--->
-
-<!-- ===== จุดที่ 2: แท็บจัดการประกาศ ===== -->
-<div id="announceManageView" class="hidden">
-  <div class="glass-strong rounded-2xl p-4 mb-6">
-    <h2 class="font-display font-bold text-sm mb-4" id="announceFormTitle">➕ เพิ่ม / แก้ไขประกาศ</h2>
-
-    <div class="grid grid-cols-2 gap-3 mb-3">
-      <label class="block">
-        <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide">กลุ่มผู้เห็น</span>
-        <select id="announceAudience" class="w-full mt-1 glass-input rounded-xl px-3 py-2 text-sm font-data focus:ring-2 focus:ring-amber-400">
-          <option value="ALL">ทุกคน (นักศึกษา + รุ่นพี่)</option>
-          <option value="STUDENT">นักศึกษาเท่านั้น</option>
-          <option value="ADMIN">รุ่นพี่/แอดมินเท่านั้น</option>
-        </select>
-      </label>
-      <label class="block">
-        <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide">สาย</span>
-        <select id="announceLineCode" class="w-full mt-1 glass-input rounded-xl px-3 py-2 text-sm font-data focus:ring-2 focus:ring-amber-400 disabled:opacity-60 disabled:cursor-not-allowed">
-          <option value="A1">A1</option>
-          <option value="A2">A2</option>
-          <option value="A3">A3</option>
-          <option value="A4">A4</option>
-          <option value="A5">A5</option>
-          <option value="A6">A6</option>
-          <option value="ALL">ALL (ทุกสาย)</option>
-        </select>
-      </label>
-    </div>
-
-    <label class="block mb-3">
-      <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide">หัวข้อประกาศ</span>
-      <input id="announceTitle" type="text" placeholder="เช่น 📢 เลื่อนกำหนดส่งภารกิจที่ 5"
-        class="w-full mt-1 glass-input rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-400" />
-    </label>
-
-    <label class="block mb-4">
-      <span class="text-[11px] font-semibold text-ink-soft uppercase tracking-wide">ข้อความ</span>
-      <textarea id="announceMessage" rows="3" placeholder="รายละเอียดประกาศ..."
-        class="w-full mt-1 glass-input rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-amber-400"></textarea>
-    </label>
-
-    <input id="announceEditId" type="hidden" value="" />
-
-    <p id="announceError" class="text-rose-600 text-xs mb-2 hidden font-medium"></p>
-    <p id="announceSuccess" class="text-emerald-700 text-xs mb-2 hidden font-semibold"></p>
-
-    <div class="flex gap-2">
-      <button id="cancelAnnounceEditBtn" class="hidden flex-1 rounded-xl py-2.5 text-sm border border-ink/15 text-ink-soft font-medium hover:bg-white/40 transition">ยกเลิกแก้ไข</button>
-      <button id="saveAnnounceBtn" class="flex-1 flame-btn text-white font-bold rounded-xl py-2.5 text-sm transition font-display tracking-wide">บันทึกประกาศ</button>
-    </div>
-  </div>
-
-  <h2 class="font-display font-bold text-sm mb-3">📋 ประกาศทั้งหมด</h2>
-  <div id="announceListEmptyState" class="hidden text-center py-12 text-ink-soft text-sm">ยังไม่มีประกาศในระบบ เริ่มเพิ่มด้านบนได้เลย</div>
-  <div id="announceManageList" class="space-y-3"></div>
-</div>
-
-<!-- ===== จุดที่ 3: POPUP ประกาศ (สำหรับรุ่นพี่เห็นตอน login / หน้าหลัก) ===== -->
+<!-- ===== ANNOUNCEMENT POPUP (top-level เพื่อให้ใช้ได้ทั้งหน้า login และหน้าหลัก) ===== -->
 <div id="announceModal" class="hidden fixed inset-0 bg-ink/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-[60] p-0 sm:p-4">
   <div class="glass-strong rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
     <div class="flex items-center justify-between p-5 pb-3">
@@ -274,7 +257,7 @@
 
 <button id="announceBell" class="hidden fixed bottom-5 right-5 z-40 w-12 h-12 rounded-full flame-btn text-white text-xl sticker items-center justify-center relative">
   🔔
-  <span id="announceDot" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-bubble border-2 border-white"></span>
+  <span id="announceDot" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 border-2 border-white"></span>
 </button>
 
 <script src="../config.js"></script>
