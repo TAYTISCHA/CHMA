@@ -1,333 +1,205 @@
-const STEP_LABELS = { active:'กำลังทำ ✏️', completed:'ผ่านแล้ว 🎉', locked:'ยังไม่ปลดล็อค 🔒', reviewing:'รอตรวจ ⏳' };
+// ==========================================
+// 1. HELPERS & STATE MANAGEMENT
+// ==========================================
+const $ = id => document.getElementById(id);
+const toggle = (id, show) => $(id)?.classList.toggle('hidden', !show);
+const on = (id, evt, cb) => $(id)?.addEventListener(evt, cb);
 
-let state = { token: null, currentStep: null };
+let state = {
+  token: localStorage.getItem('a_family_student_token'),
+  nickname: localStorage.getItem('a_family_student_nickname'),
+  lineCode: localStorage.getItem('a_family_student_line'),
+  currentUploadStep: null,
+  announcements: []
+};
 
-// ---------- persistence ----------
-function saveSession(token) { localStorage.setItem('a_family_token', token); }
-function loadSession() { return localStorage.getItem('a_family_token'); }
-function clearSession() { localStorage.removeItem('a_family_token'); }
+const saveSession = (token, nickname, lineCode) => {
+  state.token = token; state.nickname = nickname; state.lineCode = lineCode;
+  localStorage.setItem('a_family_student_token', token);
+  localStorage.setItem('a_family_student_nickname', nickname);
+  localStorage.setItem('a_family_student_line', lineCode);
+};
 
-// ---------- image compression ----------
-function compressImage(file, maxWidth = 1280, quality = 0.72) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxWidth / img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        resolve({ base64: dataUrl.split(',')[1], mime: 'image/jpeg', dataUrl });
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+const clearSession = () => { localStorage.clear(); location.reload(); };
+const escapeHtml = str => Object.assign(document.createElement('div'), { textContent: str || '' }).innerHTML;
+const toDriveThumbnail = (url, size = 1000) => url?.match(/[-\w]{20,}/) ? `https://drive.google.com/thumbnail?id=${url.match(/[-\w]{20,}/)[0]}&sz=w${size}` : url;
+const fileToBase64 = file => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = e => rej(e); r.readAsDataURL(file); });
 
-// ---------- login ----------
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
+// ==========================================
+// 2. AUTHENTICATION (LOGIN / LOGOUT)
+// ==========================================
+on('loginForm', 'submit', async e => {
   e.preventDefault();
-  const btn = document.getElementById('loginBtn');
-  const errEl = document.getElementById('loginError');
-  errEl.classList.add('hidden');
+  const btn = $('loginBtn');
+  toggle('loginError', false);
   btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ...';
 
   try {
     const res = await callApi('studentLogin', {
-      student_id: document.getElementById('loginStudentId').value.trim(),
-      password: document.getElementById('loginPassword').value
+      student_id: $('loginStudentId').value.trim(),
+      password: $('loginPassword').value
     });
     if (!res.success) throw new Error(res.error || 'เข้าสู่ระบบไม่สำเร็จ');
-    saveSession(res.token);
-    state.token = res.token;
-    await loadDashboard();
+    
+    saveSession(res.token, res.nickname, res.line_code);
+    await switchView(true);
   } catch (err) {
-    errEl.textContent = '⚠ ' + err.message;
-    errEl.classList.remove('hidden');
+    $('loginError').textContent = '⚠ ' + err.message;
+    toggle('loginError', true);
   } finally {
     btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ 🚀';
   }
 });
 
-document.getElementById('logoutBtn').addEventListener('click', () => {
-  clearSession();
-  location.reload();
-});
+on('logoutBtn', 'click', clearSession);
+on('refreshBtn', 'click', () => loadDashboard());
 
-document.getElementById('refreshBtn').addEventListener('click', loadDashboard);
-
-// ---------- dashboard ----------
-async function loadDashboard() {
-  const res = await callApi('getDashboard', { token: state.token });
-  if (!res.success) {
-    clearSession();
-    document.getElementById('loginView').classList.remove('hidden');
-    document.getElementById('dashView').classList.add('hidden');
-    const errEl = document.getElementById('loginError');
-    errEl.textContent = '⚠ ' + (res.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
-    errEl.classList.remove('hidden');
-    return;
+// ==========================================
+// 3. VIEW CONTROLLER & DASHBOARD
+// ==========================================
+async function switchView(isLoggedIn) {
+  toggle('loginView', !isLoggedIn);
+  toggle('dashView', isLoggedIn);
+  if (isLoggedIn) {
+    await loadDashboard();
+  } else {
+    await checkAnnouncements('public');
   }
+}
 
-  document.getElementById('loginView').classList.add('hidden');
-  document.getElementById('dashView').classList.remove('hidden');
-  document.getElementById('dashNickname').textContent = res.nickname;
-  document.getElementById('dashLineCode').textContent = res.line_code;
-  state.currentStep = res.current_step;
+async function loadDashboard() {
+  const res = await callApi('getStudentDashboard', { token: state.token });
+  if (!res.success) return clearSession();
 
-  renderSteps(res.steps);
-  checkAnnouncements('mine');
+  $('dashNickname').textContent = state.nickname;
+  $('dashLineCode').textContent = state.lineCode;
+  
+  renderSteps(res.steps || []);
+  await checkAnnouncements('mine');
 }
 
 function renderSteps(steps) {
-  const container = document.getElementById('stepsContainer');
-  container.innerHTML = '';
+  $('stepsContainer').innerHTML = steps.map(s => {
+    let statusBadge = '', btnHtml = '', bgClass = 'glass';
 
-  steps.forEach((s, idx) => {
-    const isDone = s.status === 'completed';
-    const isActive = s.status === 'active';
-    const isReviewing = s.status === 'reviewing';
-    const isLocked = s.status === 'locked';
-    const isLast = idx === steps.length - 1;
-    const isAllMission = s.line_code === 'ALL';
-
-    const dotClass = isDone ? 'flame-btn text-white'
-      : isActive ? 'bg-white text-amber-600 ring-4 ring-bubble/50 bounce-soft'
-      : isReviewing ? 'bg-amber-300 text-amber-900'
-      : 'bg-white/60 text-ink-soft/50';
-
-    const badgeClass = isDone ? 'bg-amber-500/15 text-amber-700'
-      : isActive ? 'bg-bubble-soft text-bubble'
-      : isReviewing ? 'bg-amber-300/25 text-amber-700'
-      : 'bg-ink/5 text-ink-soft/50';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'relative flex gap-3.5';
-
-    let bodyHtml = '';
-
-    // 💡 การสร้างป้ายกำกับภารกิจส่วนกลาง vs ภารกิจสายรหัส
-    const missionTypeBadge = isAllMission
-      ? `<span class="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center ml-2">ภารกิจส่วนกลาง 🌐</span>`
-      : `<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center ml-2">ภารกิจสายรหัส 🧪</span>`;
-
-    if (isLocked) {
-      bodyHtml = `<p class="text-ink-soft/60 text-sm">🔒 ทำด่านก่อนหน้าให้ผ่านก่อนนะ~</p>`;
+    if (s.status === 'Passed') {
+      statusBadge = `<span class="bg-emerald-500/15 text-emerald-700 text-xs px-2.5 py-1 rounded-full font-bold">✓ ผ่านแล้ว</span>`;
+    } else if (s.status === 'Pending') {
+      statusBadge = `<span class="bg-amber-400/20 text-amber-700 text-xs px-2.5 py-1 rounded-full font-bold">⏳ รอตรวจ</span>`;
+    } else if (s.status === 'Rejected') {
+      statusBadge = `<span class="bg-rose-500/15 text-rose-600 text-xs px-2.5 py-1 rounded-full font-bold">❌ แก้ไข</span>`;
+      btnHtml = `<button data-step="${s.step}" data-action="upload" class="bg-amber-500 hover:bg-amber-600 text-white text-xs px-4 py-1.5 rounded-xl font-bold transition shadow-sm">ส่งใหม่</button>`;
+    } else if (s.status === 'Active') {
+      statusBadge = `<span class="bg-bubble/20 text-ink text-xs px-2.5 py-1 rounded-full font-bold">🎯 ทำได้เลย</span>`;
+      btnHtml = `<button data-step="${s.step}" data-action="upload" class="flame-btn text-white text-xs px-5 py-1.5 rounded-xl font-bold transition shadow-sm">ส่งงาน</button>`;
     } else {
-      bodyHtml = `
-        <div class="flex flex-wrap items-center mb-1 gap-y-1">
-          <h3 class="font-display font-bold text-ink">${escapeHtml(s.task_title || '')}</h3>
-          ${s.task_title ? missionTypeBadge : ''}
-        </div>
-        <p class="text-ink-soft text-sm mb-3 whitespace-pre-line">${escapeHtml(s.task_desc || '')}</p>
-        <div class="text-xs px-3 py-2 rounded-xl mb-3 ${isDone ? 'bg-amber-400/15 border border-amber-400/30 text-amber-700' : 'bg-ink/5 text-ink-soft'}">
-          💡 คำใบ้: ${escapeHtml(s.hint_text || '🔒 ยังไม่ปลดล็อค')}
-        </div>
-      `;
-
-      if (s.last_submission && s.last_submission.status === 'Rejected') {
-        bodyHtml += `<div class="text-xs px-3 py-2 rounded-xl mb-3 bg-rose-500/10 border border-rose-400/30 text-rose-600">
-          🙈 ถูกตีกลับ: ${escapeHtml(s.last_submission.reject_reason || 'ไม่ระบุเหตุผล')} — ลองใหม่ได้เลยน้า
-        </div>`;
-      }
-
-      if (isActive) {
-        // 💡 แอบแนบ line_code ไปกับปุ่มด้วย จะได้เอาไปเช็กเพื่อแสดงข้อความใน Modal ถูกต้อง
-        bodyHtml += `<button data-step="${s.step}" data-line="${escapeHtml(s.line_code || '')}" class="submitBtn flame-btn text-white font-display font-bold text-sm rounded-xl px-4 py-2 transition">
-          📮 อัปโหลดภารกิจ
-        </button>`;
-      } else if (isReviewing) {
-        bodyHtml += `<p class="text-amber-700 text-xs font-medium">⏳ ส่งแล้ว รอรุ่นพี่ตรวจงานอยู่นะ~</p>`;
-      }
+      statusBadge = `<span class="opacity-40 text-xs px-2.5 py-1 rounded-full font-medium">🔒 ล็อก</span>`;
+      bgClass = 'glass opacity-50 select-none';
     }
 
-    // 💡 การแสดงไอคอนในวงกลม: ถ้าผ่านแล้วให้แสดง ⭐ ถ้าเป็นสาย ALL ให้แสดง 🌐 ถ้าเป็นปกติให้แสดงตัวเลข
-    const stepDisplayContent = isDone ? '⭐' : (isAllMission ? '🌐' : s.step);
-
-    wrap.innerHTML = `
-      <div class="flex flex-col items-center flex-shrink-0">
-        <div class="w-11 h-11 rounded-2xl flex items-center justify-center font-display font-bold sticker ${dotClass} ${isDone ? 'pop-in' : ''}">
-          ${stepDisplayContent}
+    return `
+      <div class="${bgClass} rounded-2xl p-4 flex flex-col gap-2">
+        <div class="flex justify-between items-start gap-2">
+          <h3 class="font-display font-bold text-sm text-ink">ด่านที่ ${s.step}: ${escapeHtml(s.task_title)}</h3>
+          <div class="flex-shrink-0">${statusBadge}</div>
         </div>
-        ${!isLast ? `<div class="w-1 flex-1 min-h-[28px] my-1 bond-line ${isDone ? 'done' : ''}"></div>` : ''}
-      </div>
-      <div class="glass rounded-2xl p-4 flex-1 mb-3">
-        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block mb-2 ${badgeClass}">${STEP_LABELS[s.status]}</span>
-        ${bodyHtml}
-      </div>
-    `;
-    container.appendChild(wrap);
-  });
-
-  document.querySelectorAll('.submitBtn').forEach(btn => {
-    btn.addEventListener('click', () => openUploadModal(btn.dataset.step, btn.dataset.line));
-  });
+        <p class="text-xs text-ink-soft whitespace-pre-line">${escapeHtml(s.task_desc)}</p>
+        ${s.status === 'Passed' && s.hint_text ? `<div class="p-3 bg-mint-soft/40 border border-mint rounded-xl text-xs text-ink mt-1">💡 <b>คำใบ้สายรหัส:</b> ${escapeHtml(s.hint_text)}</div>` : ''}
+        ${s.status === 'Rejected' && s.reject_reason ? `<div class="p-3 bg-rose-500/10 border border-rose-400/30 rounded-xl text-xs text-rose-700 mt-1">💬 <b>พี่คอมเมนต์ว่า:</b> ${escapeHtml(s.reject_reason)}</div>` : ''}
+        ${btnHtml ? `<div class="flex justify-end mt-1">${btnHtml}</div>` : ''}
+      </div>`;
+  }).join('');
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
+// ==========================================
+// 4. MISSION UPLOAD MANAGEMENT (Event Delegation)
+// ==========================================
+on('stepsContainer', 'click', e => {
+  const btn = e.target.closest('button');
+  if (!btn || btn.dataset.action !== 'upload') return;
 
-// ---------- upload modal ----------
-let pendingImage = null;
-
-function openUploadModal(step, lineCode) {
-  // 💡 เช็กข้อความ Modal ถ่าเป็น ALL ให้แสดง "ส่วนกลาง 🌐" ถ้าปกติแสดง "ด่านที่ X"
-  document.getElementById('modalStep').textContent = lineCode === 'ALL' ? 'ส่วนกลาง 🌐' : `ด่านที่ ${step}`;
-
-  document.getElementById('imgInput').value = '';
-  document.getElementById('imgPreview').classList.add('hidden');
-  document.getElementById('msgInput').value = '';
-  document.getElementById('uploadError').classList.add('hidden');
-  pendingImage = null;
-  document.getElementById('uploadModal').dataset.step = step;
-  document.getElementById('uploadModal').classList.remove('hidden');
-}
-
-document.getElementById('cancelUpload').addEventListener('click', () => {
-  document.getElementById('uploadModal').classList.add('hidden');
+  state.currentUploadStep = btn.dataset.step;
+  $('modalStep').textContent = `ด่านที่ ${state.currentUploadStep}`;
+  $('imgInput').value = '';
+  $('msgInput').value = '';
+  toggle('imgPreview', false);
+  toggle('uploadError', false);
+  toggle('uploadModal', true);
 });
 
-document.getElementById('imgInput').addEventListener('change', async (e) => {
+on('imgInput', 'change', async e => {
   const file = e.target.files[0];
-  if (!file) return;
-  const compressed = await compressImage(file);
-  pendingImage = compressed;
-  const preview = document.getElementById('imgPreview');
-  preview.src = compressed.dataUrl;
-  preview.classList.remove('hidden');
+  if (!file) return toggle('imgPreview', false);
+  
+  try {
+    $('imgPreview').src = await fileToBase64(file);
+    toggle('imgPreview', true);
+  } catch (err) { toggle('imgPreview', false); }
 });
 
-document.getElementById('confirmUpload').addEventListener('click', async () => {
-  const step = document.getElementById('uploadModal').dataset.step;
-  const errEl = document.getElementById('uploadError');
-  const btn = document.getElementById('confirmUpload');
+on('cancelUpload', 'click', () => toggle('uploadModal', false));
 
-  if (!pendingImage) {
-    errEl.textContent = 'กรุณาแนบรูปภาพก่อนน้า 📸';
-    errEl.classList.remove('hidden');
-    return;
-  }
+on('confirmUpload', 'click', async () => {
+  const fileInput = $('imgInput');
+  if (!fileInput.files.length) return $('uploadError').textContent = '⚠ กรุณาแนบรูปภาพภารกิจ', toggle('uploadError', true);
 
+  const btn = $('confirmUpload');
+  toggle('uploadError', false);
   btn.disabled = true; btn.textContent = 'กำลังส่ง...';
+
   try {
-    const res = await callApi('submitTask', {
+    const base64Str = await fileToBase64(fileInput.files[0]);
+    const res = await callApi('submitMission', {
       token: state.token,
-      step: Number(step),
-      image_base64: pendingImage.base64,
-      mime_type: pendingImage.mime,
-      student_msg: document.getElementById('msgInput').value.trim()
+      step: Number(state.currentUploadStep),
+      image_data: base64Str,
+      student_msg: $('msgInput').value.trim()
     });
-    if (!res.success) throw new Error(res.error || 'ส่งภารกิจไม่สำเร็จ');
-    document.getElementById('uploadModal').classList.add('hidden');
+
+    if (!res.success) throw new Error(res.error || 'ส่งงานไม่สำเร็จ');
+    toggle('uploadModal', false);
     await loadDashboard();
   } catch (err) {
-    errEl.textContent = '⚠ ' + err.message;
-    errEl.classList.remove('hidden');
+    $('uploadError').textContent = '⚠ ' + err.message;
+    toggle('uploadError', true);
   } finally {
     btn.disabled = false; btn.textContent = 'ส่งภารกิจ 🚀';
   }
 });
 
-/* ================= ANNOUNCEMENTS ================= */
+// ==========================================
+// 5. ANNOUNCEMENTS POPUP LOGIC
+// ==========================================
+const STUDENT_ANNOUNCE_SEEN_KEY = 'a_family_student_announce_seen';
+const getSeenIds = () => JSON.parse(localStorage.getItem(STUDENT_ANNOUNCE_SEEN_KEY) || '[]');
+const markSeenIds = ids => localStorage.setItem(STUDENT_ANNOUNCE_SEEN_KEY, JSON.stringify([...new Set([...getSeenIds(), ...ids])]));
 
-const ANNOUNCE_SEEN_KEY = 'a_family_announce_seen';
-
-function getSeenAnnounceIds() {
-  try { return JSON.parse(localStorage.getItem(ANNOUNCE_SEEN_KEY)) || []; }
-  catch (e) { return []; }
-}
-function markAnnounceSeen(ids) {
-  const seen = new Set(getSeenAnnounceIds());
-  ids.forEach(id => seen.add(id));
-  localStorage.setItem(ANNOUNCE_SEEN_KEY, JSON.stringify([...seen]));
-}
-
-let currentAnnouncements = [];
-
-function renderAnnounceList(list) {
-  const container = document.getElementById('announceList');
-  container.innerHTML = '';
-  if (list.length === 0) {
-    container.innerHTML = `<p class="text-center text-ink-soft text-sm py-6">ยังไม่มีประกาศตอนนี้~</p>`;
-    return;
-  }
-  list.forEach(a => {
-    const card = document.createElement('div');
-    card.className = 'glass-input rounded-2xl p-3.5';
-    card.innerHTML = `
-      <p class="font-display font-bold text-ink text-sm mb-1">📌 ${escapeHtml(a.title)}</p>
-      <p class="text-ink-soft text-sm whitespace-pre-line">${escapeHtml(a.message)}</p>
-    `;
-    container.appendChild(card);
-  });
-}
-
-// kind: 'public' (หน้า login ก่อน auth) หรือ 'mine' (หลัง login แล้ว เห็นของสายตัวเองด้วย)
 async function checkAnnouncements(kind) {
-  let res;
-  if (kind === 'public') {
-    res = await callApi('getPublicAnnouncements', { audience: 'STUDENT' });
-  } else {
-    res = await callApi('getStudentAnnouncements', { token: state.token });
-  }
-  if (!res || !res.success) return;
+  const res = await callApi(kind === 'public' ? 'getPublicAnnouncements' : 'getStudentAnnouncements', kind === 'public' ? { audience: 'STUDENT' } : { token: state.token });
+  if (!res?.success) return;
 
-  currentAnnouncements = res.announcements || [];
-  renderAnnounceList(currentAnnouncements);
+  state.announcements = res.announcements || [];
+  $('announceList').innerHTML = state.announcements.length 
+    ? state.announcements.map(a => `<div class="glass-input rounded-2xl p-3.5"><p class="font-display font-bold text-ink text-sm mb-1">📌 ${escapeHtml(a.title)}</p><p class="text-ink-soft text-sm whitespace-pre-line">${escapeHtml(a.message)}</p></div>`).join('')
+    : `<p class="text-center text-ink-soft text-sm py-6">ยังไม่มีประกาศจากพี่ๆ เลย~</p>`;
 
-  const bell = document.getElementById('announceBell');
-  const dot = document.getElementById('announceDot');
-
-  if (currentAnnouncements.length === 0) {
-    bell.classList.add('hidden');
-    bell.classList.remove('flex');
-    return;
-  }
-  bell.classList.remove('hidden');
-  bell.classList.add('flex');
-
-  const seen = getSeenAnnounceIds();
-  const unseen = currentAnnouncements.filter(a => !seen.includes(a.announce_id));
-
-  if (unseen.length > 0) {
-    dot.classList.remove('hidden');
-    document.getElementById('announceModal').classList.remove('hidden');
-  } else {
-    dot.classList.add('hidden');
-  }
+  const unseen = state.announcements.filter(a => !getSeenIds().includes(a.announce_id));
+  toggle('announceBell', state.announcements.length > 0);
+  toggle('announceDot', unseen.length > 0);
+  if (unseen.length > 0) toggle('announceModal', true);
 }
 
-document.getElementById('announceCloseBtn').addEventListener('click', () => {
-  document.getElementById('announceModal').classList.add('hidden');
+on('announceCloseBtn', 'click', () => toggle('announceModal', false));
+on('announceBell', 'click', () => toggle('announceModal', true));
+on('announceOkBtn', 'click', () => {
+  markSeenIds(state.announcements.map(a => a.announce_id));
+  toggle('announceDot', false);
+  toggle('announceModal', false);
 });
 
-document.getElementById('announceOkBtn').addEventListener('click', () => {
-  markAnnounceSeen(currentAnnouncements.map(a => a.announce_id));
-  document.getElementById('announceDot').classList.add('hidden');
-  document.getElementById('announceModal').classList.add('hidden');
-});
-
-document.getElementById('announceBell').addEventListener('click', () => {
-  document.getElementById('announceModal').classList.remove('hidden');
-});
-
-// ---------- boot ----------
-(async function boot() {
-  const token = loadSession();
-  if (token) {
-    state.token = token;
-    await loadDashboard();
-  } else {
-    checkAnnouncements('public');
-  }
+// ==========================================
+// 6. INITIALIZATION (BOOT)
+// ==========================================
+(async () => {
+  await switchView(!!state.token);
 })();
