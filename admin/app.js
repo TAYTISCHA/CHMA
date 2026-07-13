@@ -8,7 +8,7 @@ const on = (id, evt, cb) => $(id)?.addEventListener(evt, cb);
 let state = {
   token: localStorage.getItem('a_family_admin_token'),
   username: localStorage.getItem('a_family_admin_username'),
-  scope: localStorage.getItem('a_family_admin_scope'), // 'ALL' หรือรหัสสาย เช่น 'A1'
+  scope: localStorage.getItem('a_family_admin_scope'), 
   currentRejectQueueId: null,
   currentEditMissionId: null,
   announcements: []
@@ -26,10 +26,14 @@ const escapeHtml = str => Object.assign(document.createElement('div'), { textCon
 const toDriveThumbnail = (url, size = 600) => url?.match(/[-\w]{20,}/) ? `https://drive.google.com/thumbnail?id=${url.match(/[-\w]{20,}/)[0]}&sz=w${size}` : url;
 
 // ==========================================
-// 2. AUTHENTICATION
+// 2. AUTHENTICATION (ADMIN LOGIN)
 // ==========================================
 on('loginForm', 'submit', async e => {
   e.preventDefault();
+  
+  // 🛡️ Guard Clause: ถ้าไม่ใช่หน้าแอดมิน (ไม่มีช่องกรอกชื่อแอดมิน) ให้หยุดทำงานทันที
+  if (!$('loginUser') || !$('loginPass')) return;
+
   const btn = $('loginBtn');
   toggle('loginError', false);
   btn.disabled = true; btn.textContent = 'กำลังตรวจสอบสิทธิ์...';
@@ -76,7 +80,6 @@ function switchTab(activeViewId, activeTabId) {
     }
   });
   
-  // โหลดข้อมูลใหม่ตามแท็บที่เปิด
   if (activeViewId === 'queueView') loadQueue();
   if (activeViewId === 'missionsView') loadMissions();
   if (activeViewId === 'announceManageView') loadAnnounceManage();
@@ -103,17 +106,16 @@ function setupScopeBadge() {
   }
   $('scopeHint').textContent = `สิทธิ์การเข้าถึง: เข้าดูและจัดการเฉพาะระบบของ ${isCentral ? 'ทุกสายรหัสส่วนกลาง' : `สายรหัส ${state.scope}`}`;
   
-  // ปรับฟอร์มเพิ่มภารกิจตามสิทธิ์
   const lineSelect = $('missionLineCode');
   if (lineSelect) {
     lineSelect.value = state.scope;
-    lineSelect.disabled = !isCentral; // ถ้าไม่ใช่แอดมินกลาง จะเลือกสายอื่นไม่ได้
+    lineSelect.disabled = !isCentral;
   }
   toggle('centralAdminQueueSection', isCentral);
 }
 
 // ==========================================
-// 4. QUEUE MANAGEMENT (ตรวจงานน้องๆ)
+// 4. QUEUE MANAGEMENT (ตรวจงาน)
 // ==========================================
 on('refreshBtn', 'click', () => loadQueue());
 
@@ -175,9 +177,8 @@ on('confirmReject', 'click', async () => {
 });
 
 // ==========================================
-// 5. MISSION MANAGEMENT (จัดการภารกิจ)
+// 5. MISSION MANAGEMENT (จัดการภารกิจ + ปุ่มยกเลิก)
 // ==========================================
-// 💥 จุดที่คุณขอมา: โค้ดปุ่มกดยกเลิกการแก้ไขภารกิจ
 on('cancelEditBtn', 'click', () => {
   $('missionStep').value = 0;
   $('stepDisplay').textContent = 'รันเลขอัตโนมัติ 🚀';
@@ -214,7 +215,7 @@ on('saveMissionBtn', 'click', async () => {
     if (!res.success) throw new Error(res.error || 'บันทึกไม่สำเร็จ');
     
     showFormMsg('missionSuccess', '🎉 บันทึกภารกิจเรียบร้อยแล้ว!');
-    $('cancelEditBtn').click(); // สั่งรีเซ็ตฟอร์มด้วยปุ่มยกเลิก
+    $('cancelEditBtn').click(); 
     loadMissions();
   } catch (err) {
     showFormMsg('missionError', '❌ ' + err.message);
@@ -247,7 +248,7 @@ window.prepareEditMission = (m) => {
   state.currentEditMissionId = m.mission_id;
   $('missionFormTitle').textContent = `✏️ แก้ไขภารกิจ (ด่านที่ ${m.step})`;
   $('missionLineCode').value = m.line_code;
-  $('missionLineCode').disabled = true; // ล็อกไม่ให้เปลี่ยนสายตอนแก้ไข
+  $('missionLineCode').disabled = true; 
   $('missionStep').value = m.step;
   $('stepDisplay').textContent = `ด่านที่ ${m.step} (แก้ไขอยู่)`;
   $('missionTitle').value = m.title;
@@ -334,17 +335,16 @@ window.prepareEditAnnounce = (a) => {
 };
 
 window.handleDeleteAnnounce = async (id) => {
-  if (!confirm('คุณแน่ใจใช่ไหมที่จะลบประกาศนี้? ย้อนกลับไม่ได้แล้วนะพี่!')) return;
+  if (!confirm('คุณแน่ใจใช่ไหมที่จะลบประกาศนี้?')) return;
   const res = await callApi('deleteAnnouncement', { token: state.token, announce_id: id });
   if (res.success) loadAnnounceManage(); else alert(res.error || 'เกิดข้อผิดพลาด');
 };
 
-// Helpers ย่อยสำหรับฟอร์มข้อความแจ้งเตือน
 function showFormMsg(id, txt) { const el = $(id); if(el) { el.textContent = txt; el.classList.remove('hidden'); } }
 function hideFormMsg(id) { $(id)?.classList.add('hidden'); }
 
 // ==========================================
-// 7. INITIALIZATION (BOOT)
+// 7. INITIALIZATION
 // ==========================================
 (async () => {
   await switchView(!!state.token);
