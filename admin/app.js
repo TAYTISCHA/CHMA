@@ -62,6 +62,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     state.token = res.token;
     state.scope = res.scope;
     applyScopeUI();
+    checkAdminAnnouncements('mine');
     await switchTab('queue');
   } catch (err) {
     errEl.textContent = '⚠ ' + err.message;
@@ -78,6 +79,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 document.getElementById('refreshBtn').addEventListener('click', loadQueue);
 document.getElementById('tabQueue').addEventListener('click', () => switchTab('queue'));
 document.getElementById('tabMissions').addEventListener('click', () => switchTab('missions'));
+document.getElementById('tabAnnounce').addEventListener('click', () => switchTab('announce'));
 
 let currentTab = 'queue';
 
@@ -90,6 +92,7 @@ function applyScopeUI() {
   const saveBtn = document.getElementById('saveMissionBtn');
   const formTitle = document.getElementById('missionFormTitle');
   const adminQueueSection = document.getElementById('centralAdminQueueSection');
+  const announceLineSelect = document.getElementById('announceLineCode');
 
   missionsTabBtn.classList.remove('hidden');
 
@@ -100,6 +103,7 @@ function applyScopeUI() {
     if (saveBtn) saveBtn.textContent = 'บันทึกและอนุมัติภารกิจทันที';
     if (formTitle) formTitle.textContent = '➕ เพิ่ม / แก้ไขภารกิจ (ระบบส่วนกลาง)';
     if (adminQueueSection) adminQueueSection.classList.remove('hidden');
+    if (announceLineSelect) announceLineSelect.disabled = false;
   } else {
     badge.innerHTML = `<div>${escapeHtml(scope)}</div>`;
     badge.classList.remove('hidden');
@@ -112,19 +116,25 @@ function applyScopeUI() {
     if (saveBtn) saveBtn.textContent = 'ส่งคำขอเพิ่ม/แก้ไขภารกิจไปยังแอดมินกลาง';
     if (formTitle) formTitle.textContent = '📝 ส่งคำขอเพิ่ม / แก้ไขคำใบ้ภารกิจ';
     if (adminQueueSection) adminQueueSection.classList.add('hidden');
+    if (announceLineSelect) {
+      announceLineSelect.value = scope;
+      announceLineSelect.disabled = true;
+    }
   }
 }
 
 function applyTabStyles() {
-  const isQueue = currentTab === 'queue';
-  document.getElementById('tabQueue').className =
-    'tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition ' +
-    (isQueue ? 'flame-btn text-white' : 'text-ink-soft hover:text-amber-700');
-  document.getElementById('tabMissions').className =
-    'tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition ' +
-    (!isQueue ? 'flame-btn text-white' : 'text-ink-soft hover:text-amber-700');
-  document.getElementById('queueView').classList.toggle('hidden', !isQueue);
-  document.getElementById('missionsView').classList.toggle('hidden', isQueue);
+  const tabs = ['queue', 'missions', 'announce'];
+  const btnIds = { queue: 'tabQueue', missions: 'tabMissions', announce: 'tabAnnounce' };
+  const viewIds = { queue: 'queueView', missions: 'missionsView', announce: 'announceManageView' };
+
+  tabs.forEach(t => {
+    const active = currentTab === t;
+    document.getElementById(btnIds[t]).className =
+      'tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition ' +
+      (active ? 'flame-btn text-white' : 'text-ink-soft hover:text-amber-700');
+    document.getElementById(viewIds[t]).classList.toggle('hidden', !active);
+  });
 }
 
 async function switchTab(tab) {
@@ -135,8 +145,10 @@ async function switchTab(tab) {
   applyTabStyles();
   if (tab === 'queue') {
     await loadQueue();
-  } else {
+  } else if (tab === 'missions') {
     await loadMissions();
+  } else if (tab === 'announce') {
+    await loadAnnouncementsManage();
   }
 }
 
@@ -491,53 +503,7 @@ async function deleteMission(lineCode, step) {
   }
 }
 
-(async function boot() {
-  const token = loadSession();
-  if (token) {
-    state.token = token;
-    state.scope = loadScope() || 'ALL';
-    await switchTab('queue');
-  }
-})();
-
-/* ================= ANNOUNCEMENTS (เพิ่มเข้า admin/app.js) ================= */
-
-document.getElementById('tabAnnounce').addEventListener('click', () => switchTab('announce'));
-
-// --- ต้องแก้ฟังก์ชัน applyTabStyles() เดิม ให้รู้จักแท็บที่ 3 ---
-// แทนที่ทั้งฟังก์ชันเดิมด้วยเวอร์ชันนี้:
-function applyTabStyles() {
-  const tabs = ['queue', 'missions', 'announce'];
-  const btnIds = { queue: 'tabQueue', missions: 'tabMissions', announce: 'tabAnnounce' };
-  const viewIds = { queue: 'queueView', missions: 'missionsView', announce: 'announceManageView' };
-
-  tabs.forEach(t => {
-    const active = currentTab === t;
-    document.getElementById(btnIds[t]).className =
-      'tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition ' +
-      (active ? 'flame-btn text-white' : 'text-ink-soft hover:text-amber-700');
-    document.getElementById(viewIds[t]).classList.toggle('hidden', !active);
-  });
-}
-
-// --- ต้องแก้ฟังก์ชัน switchTab() เดิม ให้ผูก tab ใหม่กับ loadAnnouncementsManage ---
-// แทนที่ทั้งฟังก์ชันเดิมด้วยเวอร์ชันนี้:
-async function switchTab(tab) {
-  currentTab = tab;
-  document.getElementById('loginView').classList.add('hidden');
-  document.getElementById('appShell').classList.remove('hidden');
-  applyScopeUI();
-  applyTabStyles();
-  if (tab === 'queue') {
-    await loadQueue();
-  } else if (tab === 'missions') {
-    await loadMissions();
-  } else if (tab === 'announce') {
-    await loadAnnouncementsManage();
-  }
-}
-
-/* ---------------- จัดการประกาศ (CRUD ฝั่งแอดมิน) ---------------- */
+/* ---------------- ANNOUNCEMENT MANAGEMENT (CRUD) ---------------- */
 
 async function loadAnnouncementsManage() {
   try {
@@ -774,37 +740,14 @@ document.getElementById('announceBell').addEventListener('click', () => {
   document.getElementById('announceModal').classList.remove('hidden');
 });
 
-/* -----------------------------------------------------------------------
-   วิธีเรียกใช้ (ต้องแก้ 2 จุดใน app.js เดิม):
-
-   1) ท้ายไฟล์ ฟังก์ชัน boot() — ถ้ายังไม่มี token ให้โชว์ประกาศสาธารณะที่หน้า login
-
-        (async function boot() {
-          const token = loadSession();
-          if (token) {
-            state.token = token;
-            state.scope = loadScope() || 'ALL';
-            await switchTab('queue');
-          } else {
-            checkAdminAnnouncements('public');   // ⬅️ เพิ่มบรรทัดนี้
-          }
-        })();
-
-   2) ในฟังก์ชัน switchTab() หลังบรรทัด applyTabStyles();
-      ให้เรียก checkAdminAnnouncements('mine') ครั้งแรกที่เข้าระบบ (เรียกครั้งเดียวพอ ไม่ต้องทุกครั้งที่สลับแท็บ)
-      วิธีง่ายที่สุดคือเรียกในฟังก์ชัน login สำเร็จ (ในตัวจัดการ submit ของ loginForm)
-      ต่อจากบรรทัด applyScopeUI(); ก่อน await switchTab('queue');
-
-        applyScopeUI();
-        checkAdminAnnouncements('mine');   // ⬅️ เพิ่มบรรทัดนี้
-        await switchTab('queue');
-
-      และในฟังก์ชัน boot() ตรงกรณีมี token อยู่แล้วด้วย:
-
-        if (token) {
-          state.token = token;
-          state.scope = loadScope() || 'ALL';
-          checkAdminAnnouncements('mine');   // ⬅️ เพิ่มบรรทัดนี้
-          await switchTab('queue');
-        }
------------------------------------------------------------------------ */
+(async function boot() {
+  const token = loadSession();
+  if (token) {
+    state.token = token;
+    state.scope = loadScope() || 'ALL';
+    checkAdminAnnouncements('mine');
+    await switchTab('queue');
+  } else {
+    checkAdminAnnouncements('public');
+  }
+})();
