@@ -499,3 +499,312 @@ async function deleteMission(lineCode, step) {
     await switchTab('queue');
   }
 })();
+
+/* ================= ANNOUNCEMENTS (เพิ่มเข้า admin/app.js) ================= */
+
+document.getElementById('tabAnnounce').addEventListener('click', () => switchTab('announce'));
+
+// --- ต้องแก้ฟังก์ชัน applyTabStyles() เดิม ให้รู้จักแท็บที่ 3 ---
+// แทนที่ทั้งฟังก์ชันเดิมด้วยเวอร์ชันนี้:
+function applyTabStyles() {
+  const tabs = ['queue', 'missions', 'announce'];
+  const btnIds = { queue: 'tabQueue', missions: 'tabMissions', announce: 'tabAnnounce' };
+  const viewIds = { queue: 'queueView', missions: 'missionsView', announce: 'announceManageView' };
+
+  tabs.forEach(t => {
+    const active = currentTab === t;
+    document.getElementById(btnIds[t]).className =
+      'tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition ' +
+      (active ? 'flame-btn text-white' : 'text-ink-soft hover:text-amber-700');
+    document.getElementById(viewIds[t]).classList.toggle('hidden', !active);
+  });
+}
+
+// --- ต้องแก้ฟังก์ชัน switchTab() เดิม ให้ผูก tab ใหม่กับ loadAnnouncementsManage ---
+// แทนที่ทั้งฟังก์ชันเดิมด้วยเวอร์ชันนี้:
+async function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  applyScopeUI();
+  applyTabStyles();
+  if (tab === 'queue') {
+    await loadQueue();
+  } else if (tab === 'missions') {
+    await loadMissions();
+  } else if (tab === 'announce') {
+    await loadAnnouncementsManage();
+  }
+}
+
+/* ---------------- จัดการประกาศ (CRUD ฝั่งแอดมิน) ---------------- */
+
+async function loadAnnouncementsManage() {
+  try {
+    const res = await callApi('listAnnouncements', { token: state.token });
+    if (!res.success) { alert(res.error || 'โหลดรายการประกาศไม่สำเร็จ'); return; }
+    renderAnnounceManageList(res.announcements);
+  } catch (e) {
+    alert('เกิดข้อผิดพลาดในการโหลดข้อมูลประกาศ');
+  }
+}
+
+const AUDIENCE_LABEL = { STUDENT: 'นักศึกษา', ADMIN: 'รุ่นพี่', ALL: 'ทุกคน' };
+
+function renderAnnounceManageList(list) {
+  const container = document.getElementById('announceManageList');
+  const empty = document.getElementById('announceListEmptyState');
+  container.innerHTML = '';
+
+  if (!list || list.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  list.forEach(a => {
+    const isInactive = a.status !== 'Active';
+    const row = document.createElement('div');
+    row.className = `glass rounded-2xl p-3 flex flex-col gap-1 ${isInactive ? 'opacity-60' : ''}`;
+    row.innerHTML = `
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="element-tile px-2 py-0.5 rounded-md text-xs font-extrabold font-data flex-shrink-0">${escapeHtml(a.line_code)}</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-700">${AUDIENCE_LABEL[a.audience] || a.audience}</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isInactive ? 'bg-ink/10 text-ink-soft' : 'bg-emerald-500/15 text-emerald-700'}">${isInactive ? 'ปิดใช้งาน' : 'กำลังแสดง'}</span>
+        <div class="flex-1"></div>
+        <button class="editAnnounceBtn text-xs text-amber-700 underline underline-offset-2 flex-shrink-0 mr-2 font-semibold"
+          data-id="${escapeHtml(a.announce_id)}" data-title="${escapeHtml(a.title)}" data-message="${escapeHtml(a.message)}"
+          data-audience="${escapeHtml(a.audience)}" data-line="${escapeHtml(a.line_code)}" data-status="${escapeHtml(a.status)}">แก้ไข</button>
+        <button class="toggleAnnounceBtn text-xs text-amber-700 underline underline-offset-2 flex-shrink-0 mr-2 font-semibold"
+          data-id="${escapeHtml(a.announce_id)}" data-status="${escapeHtml(a.status)}">${isInactive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</button>
+        <button class="deleteAnnounceBtn text-xs text-rose-600 underline underline-offset-2 flex-shrink-0"
+          data-id="${escapeHtml(a.announce_id)}">ลบ</button>
+      </div>
+      <div class="mt-1">
+        <p class="text-sm font-bold text-ink">📌 ${escapeHtml(a.title)}</p>
+        <p class="text-xs text-ink-soft mt-0.5 whitespace-pre-line">${escapeHtml(a.message)}</p>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+
+  document.querySelectorAll('.editAnnounceBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('announceEditId').value = btn.dataset.id;
+      document.getElementById('announceTitle').value = btn.dataset.title;
+      document.getElementById('announceMessage').value = btn.dataset.message;
+      document.getElementById('announceAudience').value = btn.dataset.audience;
+      document.getElementById('announceLineCode').value = btn.dataset.line;
+      document.getElementById('announceFormTitle').textContent = '✏️ กำลังแก้ไขประกาศ';
+      document.getElementById('cancelAnnounceEditBtn').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  document.querySelectorAll('.toggleAnnounceBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const newStatus = btn.dataset.status === 'Active' ? 'Inactive' : 'Active';
+      btn.disabled = true;
+      try {
+        const res = await callApi('editAnnouncement', { token: state.token, announce_id: btn.dataset.id, status: newStatus });
+        if (!res.success) throw new Error(res.error);
+        await loadAnnouncementsManage();
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll('.deleteAnnounceBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบประกาศนี้ใช่ไหม?')) return;
+      try {
+        const res = await callApi('deleteAnnouncement', { token: state.token, announce_id: btn.dataset.id });
+        if (!res.success) throw new Error(res.error);
+        await loadAnnouncementsManage();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+}
+
+document.getElementById('cancelAnnounceEditBtn').addEventListener('click', () => {
+  document.getElementById('announceEditId').value = '';
+  document.getElementById('announceTitle').value = '';
+  document.getElementById('announceMessage').value = '';
+  document.getElementById('announceAudience').value = 'ALL';
+  document.getElementById('announceLineCode').value = state.scope === 'ALL' ? 'A1' : state.scope;
+  document.getElementById('announceFormTitle').textContent = '➕ เพิ่ม / แก้ไขประกาศ';
+  document.getElementById('cancelAnnounceEditBtn').classList.add('hidden');
+});
+
+document.getElementById('saveAnnounceBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('saveAnnounceBtn');
+  const errEl = document.getElementById('announceError');
+  const okEl = document.getElementById('announceSuccess');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+
+  const editId = document.getElementById('announceEditId').value;
+  const title = document.getElementById('announceTitle').value.trim();
+  const message = document.getElementById('announceMessage').value.trim();
+  const audience = document.getElementById('announceAudience').value;
+  const lineCode = document.getElementById('announceLineCode').value;
+
+  if (!title || !message) {
+    errEl.textContent = '⚠ กรุณากรอกหัวข้อและข้อความ';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  try {
+    let res;
+    if (editId) {
+      res = await callApi('editAnnouncement', {
+        token: state.token, announce_id: editId, title, message, audience, line_code: lineCode
+      });
+    } else {
+      res = await callApi('addAnnouncement', {
+        token: state.token, title, message, audience, line_code: lineCode
+      });
+    }
+    if (!res.success) throw new Error(res.error || 'บันทึกประกาศไม่สำเร็จ');
+
+    okEl.textContent = '✓ ' + (res.message || 'บันทึกเรียบร้อยแล้ว!');
+    okEl.classList.remove('hidden');
+
+    document.getElementById('announceEditId').value = '';
+    document.getElementById('announceTitle').value = '';
+    document.getElementById('announceMessage').value = '';
+    document.getElementById('announceFormTitle').textContent = '➕ เพิ่ม / แก้ไขประกาศ';
+    document.getElementById('cancelAnnounceEditBtn').classList.add('hidden');
+
+    await loadAnnouncementsManage();
+  } catch (err) {
+    errEl.textContent = '⚠ ' + err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'บันทึกประกาศ';
+  }
+});
+
+/* ---------------- Popup ประกาศฝั่งแอดมิน (login + หน้าหลัก) ---------------- */
+
+const ADMIN_ANNOUNCE_SEEN_KEY = 'a_family_admin_announce_seen';
+
+function getAdminSeenAnnounceIds() {
+  try { return JSON.parse(localStorage.getItem(ADMIN_ANNOUNCE_SEEN_KEY)) || []; }
+  catch (e) { return []; }
+}
+function markAdminAnnounceSeen(ids) {
+  const seen = new Set(getAdminSeenAnnounceIds());
+  ids.forEach(id => seen.add(id));
+  localStorage.setItem(ADMIN_ANNOUNCE_SEEN_KEY, JSON.stringify([...seen]));
+}
+
+let currentAdminAnnouncements = [];
+
+function renderAdminAnnounceList(list) {
+  const container = document.getElementById('announceList');
+  container.innerHTML = '';
+  if (list.length === 0) {
+    container.innerHTML = `<p class="text-center text-ink-soft text-sm py-6">ยังไม่มีประกาศตอนนี้~</p>`;
+    return;
+  }
+  list.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'glass-input rounded-2xl p-3.5';
+    card.innerHTML = `
+      <p class="font-display font-bold text-ink text-sm mb-1">📌 ${escapeHtml(a.title)}</p>
+      <p class="text-ink-soft text-sm whitespace-pre-line">${escapeHtml(a.message)}</p>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// kind: 'public' (หน้า login ก่อน auth) หรือ 'mine' (หลัง login แล้ว)
+async function checkAdminAnnouncements(kind) {
+  let res;
+  if (kind === 'public') {
+    res = await callApi('getPublicAnnouncements', { audience: 'ADMIN' });
+  } else {
+    res = await callApi('getAdminAnnouncements', { token: state.token });
+  }
+  if (!res || !res.success) return;
+
+  currentAdminAnnouncements = res.announcements || [];
+  renderAdminAnnounceList(currentAdminAnnouncements);
+
+  const bell = document.getElementById('announceBell');
+  const dot = document.getElementById('announceDot');
+
+  if (currentAdminAnnouncements.length === 0) {
+    bell.classList.add('hidden');
+    bell.classList.remove('flex');
+    return;
+  }
+  bell.classList.remove('hidden');
+  bell.classList.add('flex');
+
+  const seen = getAdminSeenAnnounceIds();
+  const unseen = currentAdminAnnouncements.filter(a => !seen.includes(a.announce_id));
+
+  if (unseen.length > 0) {
+    dot.classList.remove('hidden');
+    document.getElementById('announceModal').classList.remove('hidden');
+  } else {
+    dot.classList.add('hidden');
+  }
+}
+
+document.getElementById('announceCloseBtn').addEventListener('click', () => {
+  document.getElementById('announceModal').classList.add('hidden');
+});
+
+document.getElementById('announceOkBtn').addEventListener('click', () => {
+  markAdminAnnounceSeen(currentAdminAnnouncements.map(a => a.announce_id));
+  document.getElementById('announceDot').classList.add('hidden');
+  document.getElementById('announceModal').classList.add('hidden');
+});
+
+document.getElementById('announceBell').addEventListener('click', () => {
+  document.getElementById('announceModal').classList.remove('hidden');
+});
+
+/* -----------------------------------------------------------------------
+   วิธีเรียกใช้ (ต้องแก้ 2 จุดใน app.js เดิม):
+
+   1) ท้ายไฟล์ ฟังก์ชัน boot() — ถ้ายังไม่มี token ให้โชว์ประกาศสาธารณะที่หน้า login
+
+        (async function boot() {
+          const token = loadSession();
+          if (token) {
+            state.token = token;
+            state.scope = loadScope() || 'ALL';
+            await switchTab('queue');
+          } else {
+            checkAdminAnnouncements('public');   // ⬅️ เพิ่มบรรทัดนี้
+          }
+        })();
+
+   2) ในฟังก์ชัน switchTab() หลังบรรทัด applyTabStyles();
+      ให้เรียก checkAdminAnnouncements('mine') ครั้งแรกที่เข้าระบบ (เรียกครั้งเดียวพอ ไม่ต้องทุกครั้งที่สลับแท็บ)
+      วิธีง่ายที่สุดคือเรียกในฟังก์ชัน login สำเร็จ (ในตัวจัดการ submit ของ loginForm)
+      ต่อจากบรรทัด applyScopeUI(); ก่อน await switchTab('queue');
+
+        applyScopeUI();
+        checkAdminAnnouncements('mine');   // ⬅️ เพิ่มบรรทัดนี้
+        await switchTab('queue');
+
+      และในฟังก์ชัน boot() ตรงกรณีมี token อยู่แล้วด้วย:
+
+        if (token) {
+          state.token = token;
+          state.scope = loadScope() || 'ALL';
+          checkAdminAnnouncements('mine');   // ⬅️ เพิ่มบรรทัดนี้
+          await switchTab('queue');
+        }
+----------------------------------------------------------------------- */
