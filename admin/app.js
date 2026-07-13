@@ -1,354 +1,753 @@
-// ==========================================
-// 1. HELPERS & STATE MANAGEMENT
-// ==========================================
-const $ = id => document.getElementById(id);
-const toggle = (id, show) => $(id)?.classList.toggle('hidden', !show);
-const on = (id, evt, cb) => $(id)?.addEventListener(evt, cb);
+let state = { token: null, scope: 'ALL', rejectType: 'student' };
+let rejectTargetId = null; // เก็บ sub_id (ของนักศึกษา) หรือ "lineCode_step" (ของรุ่นพี่)
 
-let state = {
-  token: localStorage.getItem('a_family_admin_token'),
-  username: localStorage.getItem('a_family_admin_username'),
-  scope: localStorage.getItem('a_family_admin_scope'), // 'ALL' หรือรหัสสาย เช่น 'A1'
-  currentRejectQueueId: null,
-  currentEditMissionId: null,
-  announcements: []
-};
+function saveSession(token) { localStorage.setItem('a_family_admin_token', token); }
+function loadSession() { return localStorage.getItem('a_family_admin_token'); }
+function clearSession() {
+  localStorage.removeItem('a_family_admin_token');
+  localStorage.removeItem('a_family_admin_scope');
+}
+function saveScope(scope) { localStorage.setItem('a_family_admin_scope', scope); }
+function loadScope() { return localStorage.getItem('a_family_admin_scope'); }
 
-const saveSession = (token, username, scope) => {
-  state.token = token; state.username = username; state.scope = scope;
-  localStorage.setItem('a_family_admin_token', token);
-  localStorage.setItem('a_family_admin_username', username);
-  localStorage.setItem('a_family_admin_scope', scope);
-};
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
 
-const clearSession = () => { localStorage.clear(); location.reload(); };
-const escapeHtml = str => Object.assign(document.createElement('div'), { textContent: str || '' }).innerHTML;
-const toDriveThumbnail = (url, size = 600) => url?.match(/[-\w]{20,}/) ? `https://drive.google.com/thumbnail?id=${url.match(/[-\w]{20,}/)[0]}&sz=w${size}` : url;
+function toDriveThumbnail(url, size) {
+  if (!url) return '';
+  const match = String(url).match(/[-\w]{20,}/);
+  if (!match) return url;
+  return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w${size || 1000}`;
+}
 
-// ==========================================
-// 2. AUTHENTICATION (ADMIN LOGIN)
-// ==========================================
-on('loginForm', 'submit', async e => {
+// ไอคอนหลอดทดลองสำหรับสถานะต่าง ๆ (สื่อความหมายด้วยสีของ "น้ำยา" ในหลอด)
+function tubeIcon(fillColor, opts) {
+  opts = opts || {};
+  const cracked = opts.cracked ? `<path d="M6 3L7.3 6.2L5.8 8" stroke="#f43f5e" stroke-width="0.8" fill="none"/>` : '';
+  return `
+    <svg width="14" height="16" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 1H9V9.5L12 13.5C12.8 14.7 12 16 10.5 16H3.5C2 16 1.2 14.7 2 13.5L5 9.5V1Z" stroke="#7c3a10" stroke-width="1" fill="rgba(255,255,255,0.5)"/>
+      <path d="M2.6 12.2H11.4L10.6 13.6C10.2 14.4 9.4 15 8.5 15H5.5C4.6 15 3.8 14.4 3.4 13.6L2.6 12.2Z" fill="${fillColor}"/>
+      <line x1="4" y1="1" x2="10" y2="1" stroke="#7c3a10" stroke-width="1" stroke-linecap="round"/>
+      ${cracked}
+    </svg>`;
+}
+function statusBadgeHtml(status) {
+  if (status === 'Pending') {
+    return `<span class="tube-badge px-1.5 py-0.5 rounded-lg bg-amber-400/20 text-amber-700 text-[10px] font-bold">${tubeIcon('#ffb454')} รอตรวจ</span>`;
+  } else if (status === 'Rejected') {
+    return `<span class="tube-badge px-1.5 py-0.5 rounded-lg bg-rose-500/15 text-rose-600 text-[10px] font-bold">${tubeIcon('#fda4af', {cracked:true})} ต้องแก้ไข</span>`;
+  }
+  return `<span class="tube-badge px-1.5 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-700 text-[10px] font-bold">${tubeIcon('#6ee7b7')} ใช้งานอยู่</span>`;
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  
-  // 🛡️ Guard Clause: ดักจับให้ทำงานเฉพาะหน้ารุ่นพี่ (เช็กจาก loginUser และ loginPass)
-  if (!$('loginUser') || !$('loginPass')) return;
-
-  const btn = $('loginBtn');
-  toggle('loginError', false);
-  btn.disabled = true; btn.textContent = 'กำลังตรวจสอบสิทธิ์...';
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  errEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ...';
 
   try {
     const res = await callApi('adminLogin', {
-      username: $('loginUser').value.trim(),
-      password: $('loginPass').value
+      username: document.getElementById('loginUser').value.trim(),
+      password: document.getElementById('loginPass').value
     });
-    if (!res.success) throw new Error(res.error || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-    
-    saveSession(res.token, res.username, res.scope);
-    await switchView(true);
+    if (!res.success) throw new Error(res.error || 'เข้าสู่ระบบไม่สำเร็จ');
+    saveSession(res.token);
+    saveScope(res.scope);
+    state.token = res.token;
+    state.scope = res.scope;
+    applyScopeUI();
+    checkAdminAnnouncements('mine');
+    await switchTab('queue');
   } catch (err) {
-    $('loginError').textContent = '⚠ ' + err.message;
-    toggle('loginError', true);
+    errEl.textContent = '⚠ ' + err.message;
+    errEl.classList.remove('hidden');
   } finally {
     btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
   }
 });
 
-on('logoutBtn', 'click', clearSession);
-
-// ==========================================
-// 3. NAVIGATION & TABS SYSTEM
-// ==========================================
-const tabs = ['tabQueue', 'tabMissions', 'tabAnnounce'];
-const views = ['queueView', 'missionsView', 'announceManageView'];
-
-tabs.forEach((tabId, idx) => {
-  on(tabId, 'click', () => switchTab(views[idx], tabId));
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  clearSession();
+  location.reload();
 });
+document.getElementById('refreshBtn').addEventListener('click', loadQueue);
+document.getElementById('tabQueue').addEventListener('click', () => switchTab('queue'));
+document.getElementById('tabMissions').addEventListener('click', () => switchTab('missions'));
+document.getElementById('tabAnnounce').addEventListener('click', () => switchTab('announce'));
 
-function switchTab(activeViewId, activeTabId) {
-  views.forEach(v => toggle(v, v === activeViewId));
-  tabs.forEach(t => {
-    const el = $(t);
-    if (t === activeTabId) {
-      el?.classList.add('flame-btn', 'text-white');
-      el?.classList.remove('text-ink-soft', 'hover:bg-white/40');
-    } else {
-      el?.classList.remove('flame-btn', 'text-white');
-      el?.classList.add('text-ink-soft', 'hover:bg-white/40');
+let currentTab = 'queue';
+
+function applyScopeUI() {
+  const scope = state.scope;
+  const badge = document.getElementById('scopeBadge');
+  const hint = document.getElementById('scopeHint');
+  const missionsTabBtn = document.getElementById('tabMissions');
+  const lineSelect = document.getElementById('missionLineCode');
+  const saveBtn = document.getElementById('saveMissionBtn');
+  const formTitle = document.getElementById('missionFormTitle');
+  const adminQueueSection = document.getElementById('centralAdminQueueSection');
+  const announceLineSelect = document.getElementById('announceLineCode');
+
+  missionsTabBtn.classList.remove('hidden');
+
+  if (scope === 'ALL') {
+    badge.classList.add('hidden');
+    hint.textContent = 'คุณเข้าใช้งานในฐานะแอดมินกลาง สามารถตรวจงานนักศึกษาและภารกิจของรุ่นพี่ได้ทุกสาย';
+    if (lineSelect) lineSelect.disabled = false;
+    if (saveBtn) saveBtn.textContent = 'บันทึกและอนุมัติภารกิจทันที';
+    if (formTitle) formTitle.textContent = '➕ เพิ่ม / แก้ไขภารกิจ (ระบบส่วนกลาง)';
+    if (adminQueueSection) adminQueueSection.classList.remove('hidden');
+    if (announceLineSelect) announceLineSelect.disabled = false;
+  } else {
+    badge.innerHTML = `<div>${escapeHtml(scope)}</div>`;
+    badge.classList.remove('hidden');
+    hint.textContent = `คุณดูแลและเห็นเฉพาะงานของสาย ${scope} เท่านั้น`;
+
+    if (lineSelect) {
+      lineSelect.value = scope;
+      lineSelect.disabled = true;
     }
+    if (saveBtn) saveBtn.textContent = 'ส่งคำขอเพิ่ม/แก้ไขภารกิจไปยังแอดมินกลาง';
+    if (formTitle) formTitle.textContent = '📝 ส่งคำขอเพิ่ม / แก้ไขคำใบ้ภารกิจ';
+    if (adminQueueSection) adminQueueSection.classList.add('hidden');
+    if (announceLineSelect) {
+      announceLineSelect.value = scope;
+      announceLineSelect.disabled = true;
+    }
+  }
+}
+
+function applyTabStyles() {
+  const tabs = ['queue', 'missions', 'announce'];
+  const btnIds = { queue: 'tabQueue', missions: 'tabMissions', announce: 'tabAnnounce' };
+  const viewIds = { queue: 'queueView', missions: 'missionsView', announce: 'announceManageView' };
+
+  tabs.forEach(t => {
+    const active = currentTab === t;
+    document.getElementById(btnIds[t]).className =
+      'tabBtn px-4 py-2 rounded-xl text-sm font-bold font-display transition ' +
+      (active ? 'flame-btn text-white' : 'text-ink-soft hover:text-amber-700');
+    document.getElementById(viewIds[t]).classList.toggle('hidden', !active);
   });
-  
-  // โหลดข้อมูลใหม่ตามแท็บที่เปิด
-  if (activeViewId === 'queueView') loadQueue();
-  if (activeViewId === 'missionsView') loadMissions();
-  if (activeViewId === 'announceManageView') loadAnnounceManage();
 }
 
-async function switchView(isLoggedIn) {
-  toggle('loginView', !isLoggedIn);
-  toggle('appShell', isLoggedIn);
-  if (isLoggedIn) {
-    setupScopeBadge();
-    switchTab('queueView', 'tabQueue');
+async function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  applyScopeUI();
+  applyTabStyles();
+  if (tab === 'queue') {
+    await loadQueue();
+  } else if (tab === 'missions') {
+    await loadMissions();
+  } else if (tab === 'announce') {
+    await loadAnnouncementsManage();
   }
 }
-
-function setupScopeBadge() {
-  const isCentral = state.scope === 'ALL';
-  const badge = $('scopeBadge');
-  if (badge) {
-    badge.textContent = isCentral ? 'แอดมินกลาง 👑' : `สายรหัส ${state.scope} 🧪`;
-    badge.className = isCentral 
-      ? 'element-tile text-white bg-amber-700 px-2.5 py-1.5 rounded-xl text-xs font-extrabold text-center leading-tight'
-      : 'element-tile text-ink bg-amber-200 px-2.5 py-1.5 rounded-xl text-xs font-extrabold text-center leading-tight';
-    toggle('scopeBadge', true);
-  }
-  $('scopeHint').textContent = `สิทธิ์การเข้าถึง: เข้าดูและจัดการเฉพาะระบบของ ${isCentral ? 'ทุกสายรหัสส่วนกลาง' : `สายรหัส ${state.scope}`}`;
-  
-  // ปรับฟอร์มเพิ่มภารกิจตามสิทธิ์
-  const lineSelect = $('missionLineCode');
-  if (lineSelect) {
-    lineSelect.value = state.scope;
-    lineSelect.disabled = !isCentral; // ถ้าไม่ใช่แอดมินกลาง จะเลือกสายอื่นไม่ได้
-  }
-  toggle('centralAdminQueueSection', isCentral);
-}
-
-// ==========================================
-// 4. QUEUE MANAGEMENT (ตรวจงานน้องๆ)
-// ==========================================
-on('refreshBtn', 'click', () => loadQueue());
 
 async function loadQueue() {
-  const res = await callApi('getAdminQueue', { token: state.token });
-  if (!res.success) return clearSession();
-
-  $('queueCount').textContent = `รายการรอตรวจทั้งหมด: ${res.queue?.length || 0} รายการ`;
-  toggle('emptyState', !res.queue || res.queue.length === 0);
-
-  $('queueList').innerHTML = (res.queue || []).map(q => `
-    <div class="glass-strong rounded-2xl p-4 space-y-3">
-      <div class="flex justify-between items-start flex-wrap gap-1">
-        <div>
-          <span class="bg-amber-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">สาย ${q.line_code}</span>
-          <h3 class="font-display font-bold text-sm text-ink mt-1">${escapeHtml(q.student_name)} (${q.student_id})</h3>
-        </div>
-        <span class="text-[11px] text-ink-soft/70 font-mono">${q.timestamp}</span>
-      </div>
-      <p class="text-xs text-ink"><b class="text-amber-700">ด่านที่ ${q.step}:</b> ${escapeHtml(q.task_title)}</p>
-      ${q.student_msg ? `<p class="text-xs bg-white/50 p-2.5 rounded-xl text-ink-soft italic">" ${escapeHtml(q.student_msg)} "</p>` : ''}
-      ${q.image_url ? `
-        <a href="${q.image_url}" target="_blank" class="block group relative overflow-hidden rounded-xl border border-ink/5">
-          <img src="${toDriveThumbnail(q.image_url)}" class="w-full max-h-64 object-cover group-hover:scale-102 transition duration-300" />
-          <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition">คลิกเพื่อดูรูปใหญ่ 🔍</div>
-        </a>` : ''}
-      <div class="flex gap-2 pt-1">
-        <button onclick="handleApprove('${q.queue_id}')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 rounded-xl transition">ผ่านคุ้มค่า ✅</button>
-        <button onclick="openRejectModal('${q.queue_id}')" class="flex-1 bg-rose-100 hover:bg-rose-200 text-rose-600 font-bold text-xs py-2 rounded-xl transition">ให้กลับไปแก้ ❌</button>
-      </div>
-    </div>
-  `).join('');
+  const res = await callApi('getQueue', { token: state.token });
+  if (!res.success) {
+    clearSession();
+    document.getElementById('loginView').classList.remove('hidden');
+    document.getElementById('appShell').classList.add('hidden');
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '⚠ ' + (res.error || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+    errEl.classList.remove('hidden');
+    return;
+  }
+  renderQueue(res.queue);
+  if (res.scope && res.scope !== state.scope) {
+    state.scope = res.scope;
+    saveScope(res.scope);
+    applyScopeUI();
+  }
 }
 
-window.handleApprove = async (queueId) => {
-  if (!confirm('ยืนยันให้ผ่านด่านนี้ใช่หรือไม่? น้องจะได้รับคำใบ้ถัดไปทันที')) return;
-  const res = await callApi('reviewSubmission', { token: state.token, queue_id: queueId, action: 'Approve' });
-  if (res.success) loadQueue(); else alert(res.error || 'เกิดข้อผิดพลาด');
-};
+function renderQueue(queue) {
+  document.getElementById('queueCount').textContent = `${queue.length} รายการ`;
+  const list = document.getElementById('queueList');
+  const empty = document.getElementById('emptyState');
+  list.innerHTML = '';
 
-window.openRejectModal = (queueId) => {
-  state.currentRejectQueueId = queueId;
-  $('rejectReasonInput').value = '';
-  toggle('rejectModal', true);
-};
+  if (queue.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
 
-on('cancelReject', 'click', () => toggle('rejectModal', false));
-on('confirmReject', 'click', async () => {
-  const reason = $('rejectReasonInput').value.trim();
-  if (!reason) return alert('กรุณาระบุเหตุผลที่ให้แก้ด้วยครับพี่~');
-  
-  const res = await callApi('reviewSubmission', {
-    token: state.token,
-    queue_id: state.currentRejectQueueId,
-    action: 'Reject',
-    reason: reason
+  queue.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'glass rounded-2xl p-4 flex gap-4';
+    card.innerHTML = `
+      <img src="${toDriveThumbnail(item.image_url, 300)}" loading="lazy"
+        class="w-28 h-28 object-cover rounded-xl border border-white/60 flex-shrink-0 cursor-pointer bg-white/40 shadow-sm"
+        onclick="window.open('${toDriveThumbnail(item.image_url, 1600)}', '_blank')"
+        onerror="this.onerror=null;this.src='${item.image_url}';" />
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="element-tile px-2 py-0.5 rounded-md text-xs font-extrabold font-data">${escapeHtml(item.line_code)}</span>
+          <span class="text-xs text-ink-soft font-medium">ด่านที่ ${item.step}</span>
+        </div>
+        <p class="font-bold text-sm text-ink">${escapeHtml(item.nickname)} <span class="text-ink-soft font-normal font-data text-xs">(${escapeHtml(String(item.student_id))})</span></p>
+        <p class="text-ink-soft text-sm mt-1 whitespace-pre-line">${escapeHtml(item.student_msg) || '<span class="text-ink-soft/50">— ไม่มีข้อความแนบ —</span>'}</p>
+        <div class="flex gap-2 mt-3">
+          <button class="approveBtn bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg px-3 py-1.5 shadow-sm transition" data-id="${item.sub_id}">✓ อนุมัติ</button>
+          <button class="rejectBtn bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg px-3 py-1.5 shadow-sm transition" data-id="${item.sub_id}">✕ ปฏิเสธ</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(card);
   });
-  if (res.success) { toggle('rejectModal', false); loadQueue(); } else alert(res.error || 'เกิดข้อผิดพลาด');
-});
 
-// ==========================================
-// 5. MISSION MANAGEMENT (จัดการภารกิจ)
-// ==========================================
-on('cancelEditBtn', 'click', () => {
-  $('missionStep').value = 0;
-  $('stepDisplay').textContent = 'รันเลขอัตโนมัติ 🚀';
-  $('missionFormTitle').textContent = '➕ เพิ่ม / แก้ไขภารกิจ';
-  $('missionTitle').value = '';
-  $('missionDesc').value = '';
-  $('missionHint').value = '';
-  toggle('cancelEditBtn', false);
-  state.currentEditMissionId = null;
-  
-  const lineSelect = $('missionLineCode');
-  if (lineSelect) lineSelect.disabled = (state.scope !== 'ALL');
-});
+  document.querySelectorAll('.approveBtn').forEach(btn => {
+    btn.addEventListener('click', () => approveItem(btn.dataset.id, btn));
+  });
+  document.querySelectorAll('.rejectBtn').forEach(btn => {
+    btn.addEventListener('click', () => openRejectModal(btn.dataset.id, 'student'));
+  });
+}
 
-on('saveMissionBtn', 'click', async () => {
-  const title = $('missionTitle').value.trim();
-  if (!title) return showFormMsg('missionError', 'กรุณากรอกชื่อภารกิจ');
-
-  const btn = $('saveMissionBtn');
+async function approveItem(subId, btn) {
   btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-  hideFormMsg('missionError'); hideFormMsg('missionSuccess');
-
   try {
-    const res = await callApi('saveMission', {
-      token: state.token,
-      mission_id: state.currentEditMissionId,
-      line_code: $('missionLineCode').value,
-      step: Number($('missionStep').value),
-      title: title,
-      desc: $('missionDesc').value.trim(),
-      hint: $('missionHint').value.trim()
-    });
-
-    if (!res.success) throw new Error(res.error || 'บันทึกไม่สำเร็จ');
-    
-    showFormMsg('missionSuccess', '🎉 บันทึกภารกิจเรียบร้อยแล้ว!');
-    $('cancelEditBtn').click(); // สั่งรีเซ็ตฟอร์มด้วยปุ่มยกเลิก
-    loadMissions();
+    const res = await callApi('approveSubmission', { token: state.token, sub_id: subId });
+    if (!res.success) throw new Error(res.error);
+    await loadQueue();
   } catch (err) {
-    showFormMsg('missionError', '❌ ' + err.message);
+    alert(err.message);
+    btn.disabled = false; btn.textContent = '✓ อนุมัติ';
+  }
+}
+
+function openRejectModal(id, type) {
+  rejectTargetId = id;
+  state.rejectType = type; // 'student' หรือ 'mission'
+  document.getElementById('rejectReasonInput').value = '';
+
+  if (type === 'mission') {
+    document.getElementById('rejectModalTitle').textContent = 'ระบุเหตุผลที่ปฏิเสธภารกิจของรุ่นพี่';
+  } else {
+    document.getElementById('rejectModalTitle').textContent = 'ระบุเหตุผลที่ปฏิเสธงานของน้อง';
+  }
+
+  document.getElementById('rejectModal').classList.remove('hidden');
+}
+
+document.getElementById('cancelReject').addEventListener('click', () => {
+  document.getElementById('rejectModal').classList.add('hidden');
+});
+
+document.getElementById('confirmReject').addEventListener('click', async () => {
+  const btn = document.getElementById('confirmReject');
+  const reason = document.getElementById('rejectReasonInput').value.trim();
+  if (!reason) { alert('กรุณากรอกเหตุผลด้วยครับ'); return; }
+
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  try {
+    if (state.rejectType === 'student') {
+      const res = await callApi('rejectSubmission', {
+        token: state.token,
+        sub_id: rejectTargetId,
+        reject_reason: reason
+      });
+      if (!res.success) throw new Error(res.error);
+      await loadQueue();
+    } else {
+      const [lineCode, step] = rejectTargetId.split('_');
+      const res = await callApi('rejectMission', {
+        token: state.token,
+        line_code: lineCode,
+        step: Number(step),
+        reject_reason: reason
+      });
+      if (!res.success) throw new Error(res.error);
+      await loadMissions();
+    }
+    document.getElementById('rejectModal').classList.add('hidden');
+  } catch (err) {
+    alert(err.message);
   } finally {
-    btn.disabled = false; btn.textContent = 'บันทึกภารกิจ';
+    btn.disabled = false; btn.textContent = 'ยืนยันปฏิเสธ';
   }
 });
 
-async function loadMissions() {
-  const res = await callApi('getAdminMissions', { token: state.token });
-  if (!res.success) return;
+/* ---------------- MISSION MANAGEMENT ---------------- */
 
-  toggle('missionsEmptyState', !res.missions || res.missions.length === 0);
-  $('missionsList').innerHTML = (res.missions || []).map(m => `
-    <div class="glass rounded-xl p-3.5 flex justify-between items-start gap-3">
-      <div class="space-y-1">
-        <div class="flex items-center gap-1.5 flex-wrap">
-          <span class="bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 rounded">สาย ${m.line_code}</span>
-          <span class="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded">ด่าน ${m.step}</span>
-          <h4 class="font-display font-bold text-xs text-ink">${escapeHtml(m.title)}</h4>
-        </div>
-        <p class="text-[11px] text-ink-soft line-clamp-2">${escapeHtml(m.desc)}</p>
-      </div>
-      <button onclick="prepareEditMission(${JSON.stringify(m).replace(/"/g, '&quot;')})" class="text-[11px] text-amber-700 hover:underline font-bold flex-shrink-0">แก้ไข ✏️</button>
-    </div>
-  `).join('');
+async function loadMissions() {
+  try {
+    const res = await callApi('listMissions', { token: state.token });
+    if (!res.success) {
+      alert(res.error || 'โหลดรายการภารกิจไม่สำเร็จ');
+      return;
+    }
+    renderMissions(res.missions);
+
+    if (state.scope === 'ALL') {
+      const queueRes = await callApi('getMissionQueue', { token: state.token });
+      if (queueRes.success) {
+        renderMissionQueue(queueRes.queue);
+      }
+    }
+  } catch (e) {
+    alert('เกิดข้อผิดพลาดในการโหลดข้อมูลภารกิจ');
+  }
 }
 
-window.prepareEditMission = (m) => {
-  state.currentEditMissionId = m.mission_id;
-  $('missionFormTitle').textContent = `✏️ แก้ไขภารกิจ (ด่านที่ ${m.step})`;
-  $('missionLineCode').value = m.line_code;
-  $('missionLineCode').disabled = true; // ล็อกไม่ให้เปลี่ยนสายตอนแก้ไข
-  $('missionStep').value = m.step;
-  $('stepDisplay').textContent = `ด่านที่ ${m.step} (แก้ไขอยู่)`;
-  $('missionTitle').value = m.title;
-  $('missionDesc').value = m.desc || '';
-  $('missionHint').value = m.hint || '';
-  toggle('cancelEditBtn', true);
-  $('missionFormTitle').scrollIntoView({ behavior: 'smooth' });
-};
+function renderMissionQueue(queue) {
+  const container = document.getElementById('centralAdminQueueSection');
+  const list = document.getElementById('missionQueueList');
+  list.innerHTML = '';
 
-// ==========================================
-// 6. ANNOUNCEMENT MANAGEMENT (จัดการประกาศ)
-// ==========================================
-on('cancelAnnounceEditBtn', 'click', () => {
-  $('announceFormTitle').textContent = '➕ เพิ่ม / แก้ไขประกาศ';
-  $('announceTitle').value = '';
-  $('announceMessage').value = '';
-  $('announceEditId').value = '';
-  toggle('cancelAnnounceEditBtn', false);
+  if (!queue || queue.length === 0) {
+    container.classList.add('hidden');
+    return;
+  }
+  container.classList.remove('hidden');
+
+  queue.forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'glass-input rounded-xl p-3 text-sm';
+    card.innerHTML = `
+      <div class="flex items-center gap-2 mb-1.5">
+        <span class="element-tile px-2 py-0.5 rounded-md text-xs font-extrabold font-data">${escapeHtml(m.line_code)}</span>
+        <span class="text-xs font-bold text-amber-700">ด่านที่ ${m.step}</span>
+      </div>
+      <p class="font-bold text-ink mb-0.5">หัวข้อ: ${escapeHtml(m.task_title)}</p>
+      <p class="text-ink-soft text-xs mb-1"><b>วิธีทำ:</b> ${escapeHtml(m.task_desc)}</p>
+      <p class="text-ink-soft text-xs mb-3"><b>คำใบ้หลังผ่าน:</b> ${escapeHtml(m.hint_text) || '— ไม่มี —'}</p>
+      <div class="flex gap-2">
+        <button class="approveMissionBtn bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg px-2.5 py-1 shadow-sm transition"
+          data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">✓ ผ่านอนุมัติ</button>
+        <button class="rejectMissionBtn bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg px-2.5 py-1 shadow-sm transition"
+          data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">✕ ไม่ผ่าน (คอมเมนต์)</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  document.querySelectorAll('.approveMissionBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+      try {
+        const res = await callApi('approveMission', {
+          token: state.token,
+          line_code: btn.dataset.line,
+          step: Number(btn.dataset.step)
+        });
+        if (!res.success) throw new Error(res.error);
+        await loadMissions();
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false; btn.textContent = '✓ ผ่านอนุมัติ';
+      }
+    });
+  });
+
+  document.querySelectorAll('.rejectMissionBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openRejectModal(`${btn.dataset.line}_${btn.dataset.step}`, 'mission');
+    });
+  });
+}
+
+function renderMissions(missions) {
+  const list = document.getElementById('missionsList');
+  const empty = document.getElementById('missionsEmptyState');
+  list.innerHTML = '';
+
+  const filteredMissions = state.scope === 'ALL'
+    ? (missions || [])
+    : (missions || []).filter(m => m.line_code === state.scope);
+
+  if (filteredMissions.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  filteredMissions.forEach(m => {
+    const row = document.createElement('div');
+
+    let borderClass = 'glass';
+    let rejectCommentHtml = '';
+
+    if (m.status === 'Pending') {
+      borderClass = 'glass border-amber-400/50';
+    } else if (m.status === 'Rejected') {
+      borderClass = 'glass border-rose-400/50';
+      rejectCommentHtml = `
+        <div class="mt-2 text-xs bg-rose-500/10 border border-rose-400/30 rounded-lg p-2 text-rose-700">
+          <b>เหตุผลที่ไม่ผ่าน:</b> ${escapeHtml(m.reject_reason)}
+        </div>
+      `;
+    }
+
+    const statusBadge = statusBadgeHtml(m.status);
+
+    const deleteButtonHtml = state.scope === 'ALL'
+      ? `<button class="deleteMissionBtn text-xs text-rose-600 underline underline-offset-2 flex-shrink-0" data-line="${escapeHtml(m.line_code)}" data-step="${m.step}">ลบ</button>`
+      : '';
+
+    row.className = `${borderClass} rounded-2xl p-3 flex flex-col gap-1`;
+    row.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="element-tile px-2 py-0.5 rounded-md text-xs font-extrabold font-data flex-shrink-0">${escapeHtml(m.line_code)}</span>
+        <span class="text-xs text-ink-soft flex-shrink-0 font-medium">ด่าน ${m.step}</span>
+        ${statusBadge}
+        <div class="flex-1"></div>
+        <button class="editMissionBtn text-xs text-amber-700 underline underline-offset-2 flex-shrink-0 mr-2 font-semibold"
+          data-line="${escapeHtml(m.line_code)}" data-step="${m.step}"
+          data-title="${escapeHtml(m.task_title)}" data-desc="${escapeHtml(m.task_desc)}" data-hint="${escapeHtml(m.hint_text)}">แก้ไข</button>
+        ${deleteButtonHtml}
+      </div>
+      <div class="mt-1">
+        <p class="text-sm font-bold text-ink">${escapeHtml(m.task_title)}</p>
+        <p class="text-xs text-ink-soft truncate mt-0.5">💡 ${escapeHtml(m.hint_text) || '— ไม่มีคำใบ้ —'}</p>
+      </div>
+      ${rejectCommentHtml}
+    `;
+    list.appendChild(row);
+  });
+
+  // 💡 เมื่อกดปุ่มแก้ไข
+  document.querySelectorAll('.editMissionBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('missionLineCode').value = btn.dataset.line;
+      document.getElementById('missionStep').value = btn.dataset.step;
+
+      // แสดงข้อความบอกว่ากำลังแก้ไข และปุ่มยกเลิก
+      document.getElementById('stepDisplay').textContent = `กำลังแก้ไขด่านที่ ${btn.dataset.step}`;
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+      document.getElementById('missionTitle').value = btn.dataset.title;
+      document.getElementById('missionDesc').value = btn.dataset.desc;
+      document.getElementById('missionHint').value = btn.dataset.hint;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // 💡 เมื่อกดปุ่มลบ
+  document.querySelectorAll('.deleteMissionBtn').forEach(btn => {
+    btn.addEventListener('click', () => deleteMission(btn.dataset.line, btn.dataset.step));
+  });
+}
+
+// 💡 โค้ดสำหรับปุ่ม "ยกเลิกแก้"
+document.getElementById('cancelEditBtn').addEventListener('click', () => {
+  document.getElementById('missionStep').value = 0;
+  document.getElementById('stepDisplay').textContent = 'รันเลขอัตโนมัติ 🚀';
+  document.getElementById('cancelEditBtn').classList.add('hidden');
+  document.getElementById('missionTitle').value = '';
+  document.getElementById('missionDesc').value = '';
+  document.getElementById('missionHint').value = '';
 });
 
-on('saveAnnounceBtn', 'click', async () => {
-  const title = $('announceTitle').value.trim();
-  const msg = $('announceMessage').value.trim();
-  if (!title || !msg) return showFormMsg('announceError', 'กรุณากรอกหัวข้อและข้อความให้ครบถ้วน');
-
-  const btn = $('saveAnnounceBtn');
-  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-  hideFormMsg('announceError'); hideFormMsg('announceSuccess');
+document.getElementById('saveMissionBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('saveMissionBtn');
+  const errEl = document.getElementById('missionError');
+  const okEl = document.getElementById('missionSuccess');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'กำลังดำเนินการ...';
 
   try {
-    const res = await callApi('saveAnnouncement', {
+    const res = await callApi('addMission', {
       token: state.token,
-      announce_id: $('announceEditId').value || null,
-      audience: $('announceAudience').value,
-      line_code: $('announceLineCode').value,
-      title: title,
-      message: msg
+      line_code: document.getElementById('missionLineCode').value,
+      step: Number(document.getElementById('missionStep').value),
+      task_title: document.getElementById('missionTitle').value.trim(),
+      task_desc: document.getElementById('missionDesc').value.trim(),
+      hint_text: document.getElementById('missionHint').value.trim()
     });
 
-    if (!res.success) throw new Error(res.error || 'บันทึกประกาศไม่สำเร็จ');
-    
-    showFormMsg('announceSuccess', '📢 บันทึกประกาศเรียบร้อยแล้ว!');
-    $('cancelAnnounceEditBtn').click();
-    loadAnnounceManage();
+    if (!res.success) throw new Error(res.error || 'บันทึกภารกิจไม่สำเร็จ');
+
+    okEl.textContent = '✓ ' + (res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว!');
+    okEl.classList.remove('hidden');
+
+    // 💡 รีเซ็ตฟอร์มกลับเป็นรันเลขอัตโนมัติ
+    document.getElementById('missionTitle').value = '';
+    document.getElementById('missionDesc').value = '';
+    document.getElementById('missionHint').value = '';
+    document.getElementById('missionStep').value = 0;
+    document.getElementById('stepDisplay').textContent = 'รันเลขอัตโนมัติ 🚀';
+    document.getElementById('cancelEditBtn').classList.add('hidden');
+
+    await loadMissions();
   } catch (err) {
-    showFormMsg('announceError', '❌ ' + err.message);
+    errEl.textContent = '⚠ ' + err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    applyScopeUI();
+  }
+});
+
+async function deleteMission(lineCode, step) {
+  if (state.scope !== 'ALL') return;
+  if (!confirm(`ลบภารกิจ ${lineCode} ด่าน ${step} ใช่ไหม?`)) return;
+  try {
+    const res = await callApi('deleteMission', { token: state.token, line_code: lineCode, step: Number(step) });
+    if (!res.success) throw new Error(res.error);
+    await loadMissions();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+/* ---------------- ANNOUNCEMENT MANAGEMENT (CRUD) ---------------- */
+
+async function loadAnnouncementsManage() {
+  try {
+    const res = await callApi('listAnnouncements', { token: state.token });
+    if (!res.success) { alert(res.error || 'โหลดรายการประกาศไม่สำเร็จ'); return; }
+    renderAnnounceManageList(res.announcements);
+  } catch (e) {
+    alert('เกิดข้อผิดพลาดในการโหลดข้อมูลประกาศ');
+  }
+}
+
+const AUDIENCE_LABEL = { STUDENT: 'นักศึกษา', ADMIN: 'รุ่นพี่', ALL: 'ทุกคน' };
+
+function renderAnnounceManageList(list) {
+  const container = document.getElementById('announceManageList');
+  const empty = document.getElementById('announceListEmptyState');
+  container.innerHTML = '';
+
+  if (!list || list.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  list.forEach(a => {
+    const isInactive = a.status !== 'Active';
+    const row = document.createElement('div');
+    row.className = `glass rounded-2xl p-3 flex flex-col gap-1 ${isInactive ? 'opacity-60' : ''}`;
+    row.innerHTML = `
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="element-tile px-2 py-0.5 rounded-md text-xs font-extrabold font-data flex-shrink-0">${escapeHtml(a.line_code)}</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-700">${AUDIENCE_LABEL[a.audience] || a.audience}</span>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isInactive ? 'bg-ink/10 text-ink-soft' : 'bg-emerald-500/15 text-emerald-700'}">${isInactive ? 'ปิดใช้งาน' : 'กำลังแสดง'}</span>
+        <div class="flex-1"></div>
+        <button class="editAnnounceBtn text-xs text-amber-700 underline underline-offset-2 flex-shrink-0 mr-2 font-semibold"
+          data-id="${escapeHtml(a.announce_id)}" data-title="${escapeHtml(a.title)}" data-message="${escapeHtml(a.message)}"
+          data-audience="${escapeHtml(a.audience)}" data-line="${escapeHtml(a.line_code)}" data-status="${escapeHtml(a.status)}">แก้ไข</button>
+        <button class="toggleAnnounceBtn text-xs text-amber-700 underline underline-offset-2 flex-shrink-0 mr-2 font-semibold"
+          data-id="${escapeHtml(a.announce_id)}" data-status="${escapeHtml(a.status)}">${isInactive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</button>
+        <button class="deleteAnnounceBtn text-xs text-rose-600 underline underline-offset-2 flex-shrink-0"
+          data-id="${escapeHtml(a.announce_id)}">ลบ</button>
+      </div>
+      <div class="mt-1">
+        <p class="text-sm font-bold text-ink">📌 ${escapeHtml(a.title)}</p>
+        <p class="text-xs text-ink-soft mt-0.5 whitespace-pre-line">${escapeHtml(a.message)}</p>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+
+  document.querySelectorAll('.editAnnounceBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('announceEditId').value = btn.dataset.id;
+      document.getElementById('announceTitle').value = btn.dataset.title;
+      document.getElementById('announceMessage').value = btn.dataset.message;
+      document.getElementById('announceAudience').value = btn.dataset.audience;
+      document.getElementById('announceLineCode').value = btn.dataset.line;
+      document.getElementById('announceFormTitle').textContent = '✏️ กำลังแก้ไขประกาศ';
+      document.getElementById('cancelAnnounceEditBtn').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  document.querySelectorAll('.toggleAnnounceBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const newStatus = btn.dataset.status === 'Active' ? 'Inactive' : 'Active';
+      btn.disabled = true;
+      try {
+        const res = await callApi('editAnnouncement', { token: state.token, announce_id: btn.dataset.id, status: newStatus });
+        if (!res.success) throw new Error(res.error);
+        await loadAnnouncementsManage();
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll('.deleteAnnounceBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบประกาศนี้ใช่ไหม?')) return;
+      try {
+        const res = await callApi('deleteAnnouncement', { token: state.token, announce_id: btn.dataset.id });
+        if (!res.success) throw new Error(res.error);
+        await loadAnnouncementsManage();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+}
+
+document.getElementById('cancelAnnounceEditBtn').addEventListener('click', () => {
+  document.getElementById('announceEditId').value = '';
+  document.getElementById('announceTitle').value = '';
+  document.getElementById('announceMessage').value = '';
+  document.getElementById('announceAudience').value = 'ALL';
+  document.getElementById('announceLineCode').value = state.scope === 'ALL' ? 'A1' : state.scope;
+  document.getElementById('announceFormTitle').textContent = '➕ เพิ่ม / แก้ไขประกาศ';
+  document.getElementById('cancelAnnounceEditBtn').classList.add('hidden');
+});
+
+document.getElementById('saveAnnounceBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('saveAnnounceBtn');
+  const errEl = document.getElementById('announceError');
+  const okEl = document.getElementById('announceSuccess');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+
+  const editId = document.getElementById('announceEditId').value;
+  const title = document.getElementById('announceTitle').value.trim();
+  const message = document.getElementById('announceMessage').value.trim();
+  const audience = document.getElementById('announceAudience').value;
+  const lineCode = document.getElementById('announceLineCode').value;
+
+  if (!title || !message) {
+    errEl.textContent = '⚠ กรุณากรอกหัวข้อและข้อความ';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  try {
+    let res;
+    if (editId) {
+      res = await callApi('editAnnouncement', {
+        token: state.token, announce_id: editId, title, message, audience, line_code: lineCode
+      });
+    } else {
+      res = await callApi('addAnnouncement', {
+        token: state.token, title, message, audience, line_code: lineCode
+      });
+    }
+    if (!res.success) throw new Error(res.error || 'บันทึกประกาศไม่สำเร็จ');
+
+    okEl.textContent = '✓ ' + (res.message || 'บันทึกเรียบร้อยแล้ว!');
+    okEl.classList.remove('hidden');
+
+    document.getElementById('announceEditId').value = '';
+    document.getElementById('announceTitle').value = '';
+    document.getElementById('announceMessage').value = '';
+    document.getElementById('announceFormTitle').textContent = '➕ เพิ่ม / แก้ไขประกาศ';
+    document.getElementById('cancelAnnounceEditBtn').classList.add('hidden');
+
+    await loadAnnouncementsManage();
+  } catch (err) {
+    errEl.textContent = '⚠ ' + err.message;
+    errEl.classList.remove('hidden');
   } finally {
     btn.disabled = false; btn.textContent = 'บันทึกประกาศ';
   }
 });
 
-async function loadAnnounceManage() {
-  const res = await callApi('getAdminAnnouncements', { token: state.token });
-  if (!res.success) return;
+/* ---------------- Popup ประกาศฝั่งแอดมิน (login + หน้าหลัก) ---------------- */
 
-  toggle('announceListEmptyState', !res.announcements || res.announcements.length === 0);
-  $('announceManageList').innerHTML = (res.announcements || []).map(a => `
-    <div class="glass rounded-xl p-3.5 space-y-2">
-      <div class="flex justify-between items-start gap-2">
-        <div>
-          <span class="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded">ผู้เห็น: ${a.audience}</span>
-          <span class="bg-ink text-white text-[9px] font-bold px-1.5 py-0.5 rounded">สาย: ${a.line_code}</span>
-          <h4 class="font-display font-bold text-xs text-ink mt-1">📌 ${escapeHtml(a.title)}</h4>
-        </div>
-        <div class="flex gap-2 text-[11px] font-bold flex-shrink-0">
-          <button onclick="prepareEditAnnounce(${JSON.stringify(a).replace(/"/g, '&quot;')})" class="text-amber-700 hover:underline">แก้</button>
-          <button onclick="handleDeleteAnnounce('${a.announce_id}')" class="text-rose-600 hover:underline">ลบ</button>
-        </div>
-      </div>
-      <p class="text-[11px] text-ink-soft whitespace-pre-line">${escapeHtml(a.message)}</p>
-    </div>
-  `).join('');
+const ADMIN_ANNOUNCE_SEEN_KEY = 'a_family_admin_announce_seen';
+
+function getAdminSeenAnnounceIds() {
+  try { return JSON.parse(localStorage.getItem(ADMIN_ANNOUNCE_SEEN_KEY)) || []; }
+  catch (e) { return []; }
+}
+function markAdminAnnounceSeen(ids) {
+  const seen = new Set(getAdminSeenAnnounceIds());
+  ids.forEach(id => seen.add(id));
+  localStorage.setItem(ADMIN_ANNOUNCE_SEEN_KEY, JSON.stringify([...seen]));
 }
 
-window.prepareEditAnnounce = (a) => {
-  $('announceEditId').value = a.announce_id;
-  $('announceFormTitle').textContent = '✏️ แก้ไขประกาศ';
-  $('announceAudience').value = a.audience;
-  $('announceLineCode').value = a.line_code;
-  $('announceTitle').value = a.title;
-  $('announceMessage').value = a.message;
-  toggle('cancelAnnounceEditBtn', true);
-  $('announceFormTitle').scrollIntoView({ behavior: 'smooth' });
-};
+let currentAdminAnnouncements = [];
 
-window.handleDeleteAnnounce = async (id) => {
-  if (!confirm('คุณแน่ใจใช่ไหมที่จะลบประกาศนี้? ย้อนกลับไม่ได้แล้วนะพี่!')) return;
-  const res = await callApi('deleteAnnouncement', { token: state.token, announce_id: id });
-  if (res.success) loadAnnounceManage(); else alert(res.error || 'เกิดข้อผิดพลาด');
-};
+function renderAdminAnnounceList(list) {
+  const container = document.getElementById('announceList');
+  container.innerHTML = '';
+  if (list.length === 0) {
+    container.innerHTML = `<p class="text-center text-ink-soft text-sm py-6">ยังไม่มีประกาศตอนนี้~</p>`;
+    return;
+  }
+  list.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'glass-input rounded-2xl p-3.5';
+    card.innerHTML = `
+      <p class="font-display font-bold text-ink text-sm mb-1">📌 ${escapeHtml(a.title)}</p>
+      <p class="text-ink-soft text-sm whitespace-pre-line">${escapeHtml(a.message)}</p>
+    `;
+    container.appendChild(card);
+  });
+}
 
-// Helpers ย่อยสำหรับฟอร์มข้อความแจ้งเตือน
-function showFormMsg(id, txt) { const el = $(id); if(el) { el.textContent = txt; el.classList.remove('hidden'); } }
-function hideFormMsg(id) { $(id)?.classList.add('hidden'); }
+// kind: 'public' (หน้า login ก่อน auth) หรือ 'mine' (หลัง login แล้ว)
+async function checkAdminAnnouncements(kind) {
+  let res;
+  if (kind === 'public') {
+    res = await callApi('getPublicAnnouncements', { audience: 'ADMIN' });
+  } else {
+    res = await callApi('getAdminAnnouncements', { token: state.token });
+  }
+  if (!res || !res.success) return;
 
-// ==========================================
-// 7. INITIALIZATION (BOOT)
-// ==========================================
-(async () => {
-  await switchView(!!state.token);
+  currentAdminAnnouncements = res.announcements || [];
+  renderAdminAnnounceList(currentAdminAnnouncements);
+
+  const bell = document.getElementById('announceBell');
+  const dot = document.getElementById('announceDot');
+
+  if (currentAdminAnnouncements.length === 0) {
+    bell.classList.add('hidden');
+    bell.classList.remove('flex');
+    return;
+  }
+  bell.classList.remove('hidden');
+  bell.classList.add('flex');
+
+  const seen = getAdminSeenAnnounceIds();
+  const unseen = currentAdminAnnouncements.filter(a => !seen.includes(a.announce_id));
+
+  if (unseen.length > 0) {
+    dot.classList.remove('hidden');
+    document.getElementById('announceModal').classList.remove('hidden');
+  } else {
+    dot.classList.add('hidden');
+  }
+}
+
+document.getElementById('announceCloseBtn').addEventListener('click', () => {
+  document.getElementById('announceModal').classList.add('hidden');
+});
+
+document.getElementById('announceOkBtn').addEventListener('click', () => {
+  markAdminAnnounceSeen(currentAdminAnnouncements.map(a => a.announce_id));
+  document.getElementById('announceDot').classList.add('hidden');
+  document.getElementById('announceModal').classList.add('hidden');
+});
+
+document.getElementById('announceBell').addEventListener('click', () => {
+  document.getElementById('announceModal').classList.remove('hidden');
+});
+
+(async function boot() {
+  const token = loadSession();
+  if (token) {
+    state.token = token;
+    state.scope = loadScope() || 'ALL';
+    checkAdminAnnouncements('mine');
+    await switchTab('queue');
+  } else {
+    checkAdminAnnouncements('public');
+  }
 })();
